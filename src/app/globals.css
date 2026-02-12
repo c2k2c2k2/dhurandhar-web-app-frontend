@@ -1,26 +1,103 @@
+@config "../../tailwind.config.ts";
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --brand-navy: 8 49 103;
+  --brand-navy-2: 27 59 105;
+  --brand-crimson: 227 27 76;
+  --brand-red: 222 34 36;
+  --brand-gold: 253 218 21;
+  --brand-purple: 57 48 131;
+
+  --background: 255 255 255;
+  --foreground: 15 23 42;
+
+  --card: 255 255 255;
+  --card-foreground: 15 23 42;
+
+  --muted: 248 250 252;
+  --muted-foreground: 100 116 139;
+
+  --border: 226 232 240;
+  --input: 226 232 240;
+
+  --primary: var(--brand-navy);
+  --primary-foreground: 255 255 255;
+
+  --secondary: 248 250 252;
+  --secondary-foreground: var(--brand-navy);
+
+  --accent: var(--brand-crimson);
+  --accent-foreground: 255 255 255;
+
+  --destructive: var(--brand-red);
+  --destructive-foreground: 255 255 255;
+
+  --ring: var(--brand-navy);
+
+  --radius: 16px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.dark {
+  --background: 9 12 18;
+  --foreground: 226 232 240;
+
+  --card: 12 17 26;
+  --card-foreground: 226 232 240;
+
+  --muted: 18 24 36;
+  --muted-foreground: 148 163 184;
+
+  --border: 30 41 59;
+  --input: 30 41 59;
+
+  --primary: var(--brand-navy-2);
+  --primary-foreground: 255 255 255;
+
+  --secondary: 18 24 36;
+  --secondary-foreground: 226 232 240;
+
+  --accent: var(--brand-crimson);
+  --accent-foreground: 255 255 255;
+
+  --destructive: var(--brand-red);
+  --destructive-foreground: 255 255 255;
+
+  --ring: var(--brand-crimson);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html {
+  scroll-behavior: smooth;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply min-h-screen bg-background text-foreground antialiased;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.font-display {
+  font-family: var(--font-display), var(--font-sans), "Noto Sans Devanagari",
+    system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer utilities {
+  .animate-fade-up {
+    animation: fade-up 0.8s ease both;
+  }
 }
