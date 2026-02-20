@@ -53,3 +53,23 @@ export type PaymentOrderList = {
   page: number;
   pageSize: number;
 };
+
+export type PaymentRefundRequest = {
+  amountPaise?: number;
+  reason?: string;
+  merchantRefundId?: string;
+};
+
+export type PaymentRefundResult = {
+  orderId: string;
+  merchantRefundId: string;
+  providerRefundId?: string;
+  requestedAmountPaise?: number;
+  state?: string;
+  orderStatus?: string;
+  refundStatus?: {
+    state?: string;
+    amount?: number;
+    originalMerchantOrderId?: string;
+  };
+};

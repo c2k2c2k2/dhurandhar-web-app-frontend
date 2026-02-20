@@ -3,14 +3,25 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { RequirePerm } from "@/lib/auth/guards";
+import { Can, RequirePerm } from "@/lib/auth/guards";
 import { useToast } from "@/modules/shared/components/Toast";
 import { FiltersBar } from "@/modules/shared/components/FiltersBar";
 import { Modal } from "@/modules/shared/components/Modal";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
-import { DataTable, type DataTableColumn } from "@/modules/shared/components/DataTable";
-import { usePaymentOrders, useFinalizePaymentOrder } from "@/modules/payments/hooks";
-import type { PaymentOrder, PaymentTransaction, PaymentEvent } from "@/modules/payments/types";
+import {
+  DataTable,
+  type DataTableColumn,
+} from "@/modules/shared/components/DataTable";
+import {
+  usePaymentOrders,
+  useFinalizePaymentOrder,
+  useRefundPaymentOrder,
+} from "@/modules/payments/hooks";
+import type {
+  PaymentOrder,
+  PaymentTransaction,
+  PaymentEvent,
+} from "@/modules/payments/types";
 import { FormInput } from "@/modules/shared/components/FormField";
 
 function formatDate(value?: string | null) {
@@ -51,7 +62,9 @@ function statusBadge(status?: string | null) {
 
 function TransactionList({ items }: { items?: PaymentTransaction[] }) {
   if (!items || !items.length) {
-    return <p className="text-sm text-muted-foreground">No transactions logged.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">No transactions logged.</p>
+    );
   }
   return (
     <div className="space-y-2 text-sm">
@@ -61,7 +74,9 @@ function TransactionList({ items }: { items?: PaymentTransaction[] }) {
           className="rounded-xl border border-border bg-muted/40 px-3 py-2"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="font-medium">{transaction.status || "UNKNOWN"}</span>
+            <span className="font-medium">
+              {transaction.status || "UNKNOWN"}
+            </span>
             <span className="text-xs text-muted-foreground">
               {formatDate(transaction.createdAt)}
             </span>
@@ -112,7 +127,9 @@ export default function AdminPaymentsPage() {
   const [from, setFrom] = React.useState("");
   const [to, setTo] = React.useState("");
   const [page, setPage] = React.useState(1);
-  const [activeOrder, setActiveOrder] = React.useState<PaymentOrder | null>(null);
+  const [activeOrder, setActiveOrder] = React.useState<PaymentOrder | null>(
+    null,
+  );
   const pageSize = 20;
 
   const query = {
@@ -126,22 +143,82 @@ export default function AdminPaymentsPage() {
 
   const { data, isLoading, error } = usePaymentOrders(query);
   const finalizeOrder = useFinalizePaymentOrder(query);
+  const refundOrder = useRefundPaymentOrder(query);
 
-  const handleFinalize = async (orderId: string) => {
-    try {
-      await finalizeOrder.mutateAsync(orderId);
-      toast({ title: "Order refreshed" });
-    } catch (err) {
-      toast({
-        title: "Finalize failed",
-        description:
-          err && typeof err === "object" && "message" in err
-            ? String(err.message)
-            : "Unable to finalize order.",
-        variant: "destructive",
-      });
-    }
-  };
+  const handleFinalize = React.useCallback(
+    async (orderId: string) => {
+      try {
+        await finalizeOrder.mutateAsync(orderId);
+        toast({ title: "Order refreshed" });
+      } catch (err) {
+        toast({
+          title: "Finalize failed",
+          description:
+            err && typeof err === "object" && "message" in err
+              ? String(err.message)
+              : "Unable to finalize order.",
+          variant: "destructive",
+        });
+      }
+    },
+    [finalizeOrder, toast],
+  );
+
+  const handleRefund = React.useCallback(
+    async (order: PaymentOrder) => {
+      const amountInput = window.prompt(
+        "Refund amount in paise (leave empty for full remaining refund):",
+        "",
+      );
+      if (amountInput === null) return;
+
+      let amountPaise: number | undefined;
+      const trimmedAmount = amountInput.trim();
+      if (trimmedAmount) {
+        const parsed = Number(trimmedAmount);
+        if (
+          !Number.isFinite(parsed) ||
+          parsed <= 0 ||
+          !Number.isInteger(parsed)
+        ) {
+          toast({
+            title: "Invalid amount",
+            description: "Enter a positive integer amount in paise.",
+            variant: "destructive",
+          });
+          return;
+        }
+        amountPaise = parsed;
+      }
+
+      const reasonInput = window.prompt("Refund reason (optional):", "") ?? "";
+      const reason = reasonInput.trim() || undefined;
+
+      try {
+        const result = await refundOrder.mutateAsync({
+          orderId: order.id,
+          payload: {
+            amountPaise,
+            reason,
+          },
+        });
+        toast({
+          title: "Refund initiated",
+          description: `Refund ID: ${result.merchantRefundId} (${result.state || "PENDING"})`,
+        });
+      } catch (err) {
+        toast({
+          title: "Refund failed",
+          description:
+            err && typeof err === "object" && "message" in err
+              ? String(err.message)
+              : "Unable to initiate refund.",
+          variant: "destructive",
+        });
+      }
+    },
+    [refundOrder, toast],
+  );
 
   const columns = React.useMemo<DataTableColumn<PaymentOrder>[]>(
     () => [
@@ -206,11 +283,28 @@ export default function AdminPaymentsPage() {
             >
               Finalize
             </Button>
+            {order.status === "SUCCESS" || order.status === "REFUNDED" ? (
+              <Can perm="payments.refund">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={refundOrder.isPending}
+                  onClick={() => handleRefund(order)}
+                >
+                  Refund
+                </Button>
+              </Can>
+            ) : null}
           </div>
         ),
       },
     ],
-    [finalizeOrder.isPending]
+    [
+      finalizeOrder.isPending,
+      refundOrder.isPending,
+      handleFinalize,
+      handleRefund,
+    ],
   );
 
   const orders = data?.data ?? [];
@@ -342,14 +436,16 @@ export default function AdminPaymentsPage() {
                 <p>{activeOrder.user?.email || activeOrder.userId || "-"}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Merchant User ID</p>
+                <p className="text-xs text-muted-foreground">
+                  Merchant User ID
+                </p>
                 <p>{activeOrder.merchantUserId || "-"}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Amount</p>
                 <p className="font-medium">
                   {formatAmount(
-                    activeOrder.finalAmountPaise ?? activeOrder.amountPaise
+                    activeOrder.finalAmountPaise ?? activeOrder.amountPaise,
                   )}
                 </p>
               </div>
@@ -374,13 +470,27 @@ export default function AdminPaymentsPage() {
             </div>
 
             <div className="flex justify-end">
-              <Button
-                variant="secondary"
-                onClick={() => handleFinalize(activeOrder.id)}
-                disabled={finalizeOrder.isPending}
-              >
-                Refresh Status
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => handleFinalize(activeOrder.id)}
+                  disabled={finalizeOrder.isPending}
+                >
+                  Refresh Status
+                </Button>
+                {activeOrder.status === "SUCCESS" ||
+                activeOrder.status === "REFUNDED" ? (
+                  <Can perm="payments.refund">
+                    <Button
+                      variant="secondary"
+                      onClick={() => handleRefund(activeOrder)}
+                      disabled={refundOrder.isPending}
+                    >
+                      Refund
+                    </Button>
+                  </Can>
+                ) : null}
+              </div>
             </div>
           </div>
         ) : null}

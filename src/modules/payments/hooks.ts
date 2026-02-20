@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "./api";
 import type { PaymentOrdersQuery } from "./api";
+import type { PaymentRefundRequest } from "./types";
 
 const ordersKey = (query: PaymentOrdersQuery) => [
   "admin",
@@ -27,6 +28,22 @@ export function useFinalizePaymentOrder(query: PaymentOrdersQuery) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (orderId: string) => api.finalizePaymentOrder(orderId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ordersKey(query) });
+    },
+  });
+}
+
+export function useRefundPaymentOrder(query: PaymentOrdersQuery) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      payload,
+    }: {
+      orderId: string;
+      payload: PaymentRefundRequest;
+    }) => api.refundPaymentOrder(orderId, payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ordersKey(query) });
     },
