@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -22,15 +23,7 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
 
       <PageContainer className="max-w-6xl">
         <div className="flex items-center justify-between py-6">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-              <span className="font-display text-base font-semibold">D</span>
-            </div>
-            <div>
-              <p className="text-sm font-semibold">Dhurandhar</p>
-              <p className="text-xs text-muted-foreground">Career Academy</p>
-            </div>
-          </Link>
+          <BrandLogo href="/" />
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/">Back to Home</Link>

@@ -4,8 +4,10 @@ import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/modules/i18n";
 import { useStudentAccess } from "@/modules/student-auth/StudentAuthProvider";
-import { useCreateOrder, usePlans } from "@/modules/student-payments/hooks";
+import { useCreateOrder, usePlanOptions, usePlans } from "@/modules/student-payments/hooks";
+import type { PlanPurchase } from "@/modules/student-payments/types";
 import { formatCurrency, storePaymentContext } from "@/modules/student-payments/utils";
 import { trackStudentEvent } from "@/modules/student-analytics/events";
 
@@ -35,11 +37,34 @@ export default function StudentPaymentsPage() {
 
 function PaymentsContent() {
   const params = useSearchParams();
-  const { data: plans = [], isLoading } = usePlans();
+  const { t } = useI18n();
+  const { data: planOptions = [], isLoading: loadingOptions } = usePlanOptions();
+  const { data: basicPlans = [], isLoading: loadingBasicPlans } = usePlans();
   const { subscription } = useStudentAccess();
   const createOrder = useCreateOrder();
   const [couponCode, setCouponCode] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+  const isLoading = loadingOptions || loadingBasicPlans;
+
+  const plans = React.useMemo(
+    () =>
+      planOptions.length
+        ? planOptions
+        : basicPlans.map((plan) => {
+            const purchase: PlanPurchase = {
+              canPurchase: true,
+              mode: "NEW",
+              reason: "AVAILABLE",
+              message: undefined,
+            };
+            return {
+              ...plan,
+              purchase,
+              activeSubscription: null,
+            };
+          }),
+    [basicPlans, planOptions],
+  );
 
   const handleCheckout = async (planId: string) => {
     setError(null);
@@ -73,10 +98,10 @@ function PaymentsContent() {
           Plans
         </p>
         <h1 className="font-display text-2xl font-semibold">
-          Choose a plan that fits your prep
+          {t("student.payments.heading")}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Unlock premium notes, tests, and practice packs for your exams.
+          {t("student.payments.subheading")}
         </p>
       </div>
 
@@ -90,7 +115,10 @@ function PaymentsContent() {
             <div className="mt-3 space-y-1 text-sm">
               <p className="font-medium">{subscription.plan?.name ?? "Active plan"}</p>
               <p className="text-xs text-muted-foreground">
-                Valid until {subscription.endsAt ? new Date(subscription.endsAt).toLocaleDateString("en-IN") : "-"}
+                Valid until{" "}
+                {subscription.endsAt
+                  ? new Date(subscription.endsAt).toLocaleDateString("en-IN")
+                  : "-"}
               </p>
             </div>
           ) : (
@@ -123,9 +151,17 @@ function PaymentsContent() {
       <div className="grid gap-4 md:grid-cols-3">
         {plans.map((plan, index) => {
           const features = normalizeFeatures(plan.featuresJson);
+          const validityLabel =
+            plan.validity?.label || `${plan.durationDays} days`;
           const highlight = subscription?.plan?.id
             ? subscription.plan.id === plan.id
             : index === 1;
+          const purchase = plan.purchase;
+          const disabled = createOrder.isPending || purchase?.canPurchase === false;
+          const ctaLabel =
+            purchase?.mode === "RENEW"
+              ? `Renew ${plan.name}`
+              : `Buy ${plan.name}`;
           return (
             <div
               key={plan.id}
@@ -143,7 +179,7 @@ function PaymentsContent() {
               <h3 className="mt-3 text-lg font-semibold">{plan.name}</h3>
               <p className="text-2xl font-semibold">{formatCurrency(plan.pricePaise)}</p>
               <p className="text-xs text-muted-foreground">
-                {plan.durationDays} days
+                {validityLabel}
               </p>
               <ul className="mt-4 space-y-2 text-xs text-muted-foreground">
                 {features.length ? (
@@ -164,10 +200,15 @@ function PaymentsContent() {
                 variant={highlight ? "cta" : "secondary"}
                 className="mt-6 w-full"
                 onClick={() => handleCheckout(plan.id)}
-                disabled={createOrder.isPending}
+                disabled={disabled}
               >
-                Buy {plan.name}
+                {ctaLabel}
               </Button>
+              {purchase?.message ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {purchase.message}
+                </p>
+              ) : null}
             </div>
           );
         })}

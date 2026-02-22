@@ -11,6 +11,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/modules/i18n";
 import { PaywallCard } from "@/modules/student-notes/components/PaywallCard";
 import { useStudentAccess } from "@/modules/student-auth/StudentAuthProvider";
 import { useAttempts, useStartAttempt, useTests } from "@/modules/student-tests/hooks";
@@ -25,6 +26,7 @@ function formatDate(value?: string | null) {
 
 export default function StudentTestsPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const { canAccessTests } = useStudentAccess();
   const access = canAccessTests();
   const { data: testsResponse, isLoading } = useTests();
@@ -70,10 +72,10 @@ export default function StudentTestsPage() {
               Tests
             </p>
             <h1 className="mt-2 font-display text-2xl font-semibold">
-              Timed mocks + sectionals
+              {t("student.tests.heading")}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Start a test to unlock your score and analysis.
+              {t("student.tests.subheading")}
             </p>
           </div>
           <ClipboardList className="h-10 w-10 text-accent" />
@@ -88,7 +90,7 @@ export default function StudentTestsPage() {
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold">Available tests</p>
+          <p className="text-sm font-semibold">{t("student.tests.available")}</p>
           {isLoading ? <span className="text-xs text-muted-foreground">Loading...</span> : null}
         </div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -123,7 +125,7 @@ export default function StudentTestsPage() {
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button variant="cta" size="sm" onClick={() => handleStart(test.id)}>
-                  Start test
+                  {t("student.tests.start")}
                   <PlayCircle className="h-4 w-4" />
                 </Button>
                 <Button variant="secondary" size="sm" asChild>
@@ -141,7 +143,7 @@ export default function StudentTestsPage() {
       </div>
 
       <div className="space-y-3">
-        <p className="text-sm font-semibold">Your recent attempts</p>
+        <p className="text-sm font-semibold">{t("student.tests.attempts")}</p>
         <div className="grid gap-4 md:grid-cols-2">
           {attempts.map((attempt) => (
             <div

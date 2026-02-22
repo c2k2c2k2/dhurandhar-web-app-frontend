@@ -7,6 +7,19 @@ export type CmsListResponse<T> = {
   pageSize: number;
 };
 
+export type CmsConfigStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
+export type AppConfig = {
+  id: string;
+  key: string;
+  version: number;
+  status: CmsConfigStatus;
+  configJson: Record<string, unknown>;
+  createdByUserId?: string | null;
+  createdAt?: string;
+  publishedAt?: string | null;
+};
+
 export type Banner = {
   id: string;
   title: string;
@@ -101,3 +114,8 @@ export type CmsPageCreateInput = {
 };
 
 export type CmsPageUpdateInput = Partial<CmsPageCreateInput>;
+
+export type AppConfigCreateInput = {
+  key: string;
+  configJson: Record<string, unknown>;
+};

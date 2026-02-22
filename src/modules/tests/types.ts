@@ -5,15 +5,30 @@ export type TestType = "SUBJECT" | "COMBINED" | "CUSTOM";
 export type TestDifficulty = "EASY" | "MEDIUM" | "HARD";
 
 export type TestConfig = {
+  presetKey?: string;
   questionIds?: string[];
   items?: { questionId: string; marks?: number }[];
+  sections?: Array<{
+    key?: string;
+    title?: string;
+    count: number;
+    durationMinutes?: number;
+    subjectId?: string;
+    topicIds?: string[];
+    difficulty?: TestDifficulty;
+    marksPerQuestion?: number;
+    negativeMarksPerWrong?: number;
+    questionIds?: string[];
+  }>;
   mixer?: {
     subjectId?: string;
     topicIds?: string[];
     difficulty?: TestDifficulty;
     count: number;
   };
+  durationMinutes?: number;
   marksPerQuestion?: number;
+  negativeMarksPerWrong?: number;
 };
 
 export type TestItem = {
@@ -50,3 +65,25 @@ export type TestCreateInput = {
 };
 
 export type TestUpdateInput = Partial<TestCreateInput>;
+
+export type TestPreset = {
+  key: string;
+  title: string;
+  exam: string;
+  description?: string;
+  durationMinutes: number;
+  marksPerQuestion: number;
+  negativeMarksPerWrong: number;
+  sections: Array<{
+    key: string;
+    title: string;
+    count: number;
+    durationMinutes?: number;
+    subjectId?: string;
+    topicIds?: string[];
+    difficulty?: TestDifficulty;
+    marksPerQuestion?: number;
+    negativeMarksPerWrong?: number;
+    questionIds?: string[];
+  }>;
+};

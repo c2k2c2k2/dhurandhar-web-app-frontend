@@ -10,11 +10,15 @@ export const TestFormSchema = z
     subjectId: z.string().optional(),
     startsAt: z.string().optional(),
     endsAt: z.string().optional(),
+    presetKey: z.string().optional(),
     mixerCount: z.number().int().positive().optional(),
     mixerDifficulty: z.enum(["EASY", "MEDIUM", "HARD"]).optional(),
     mixerTopicIds: z.array(z.string()).optional(),
     questionIdsText: z.string().optional(),
+    sectionsJson: z.string().optional(),
+    durationMinutes: z.number().int().positive().optional(),
     marksPerQuestion: z.number().positive().optional(),
+    negativeMarksPerWrong: z.number().min(0).optional(),
     isPublished: z.boolean().optional(),
   })
   .superRefine((values, ctx) => {
@@ -35,11 +39,33 @@ export const TestFormSchema = z
         });
       }
     } else {
-      if (!values.mixerCount || values.mixerCount <= 0) {
+      if (
+        !values.presetKey &&
+        (!values.mixerCount || values.mixerCount <= 0)
+      ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["mixerCount"],
           message: "Mixer count must be greater than 0.",
+        });
+      }
+    }
+
+    if (values.sectionsJson?.trim()) {
+      try {
+        const parsed = JSON.parse(values.sectionsJson);
+        if (!Array.isArray(parsed)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["sectionsJson"],
+            message: "Sections JSON must be an array.",
+          });
+        }
+      } catch {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["sectionsJson"],
+          message: "Sections JSON is invalid.",
         });
       }
     }

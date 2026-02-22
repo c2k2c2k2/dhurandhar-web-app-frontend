@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BadgePercent,
   Bell,
   BookOpen,
   FileText,
@@ -70,6 +71,18 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Payments",
     href: "/admin/payments",
     icon: Wallet,
+    permissions: ["payments.read"],
+  },
+  {
+    label: "Plans",
+    href: "/admin/plans",
+    icon: Wallet,
+    permissions: ["payments.read"],
+  },
+  {
+    label: "Coupons",
+    href: "/admin/coupons",
+    icon: BadgePercent,
     permissions: ["payments.read"],
   },
   {

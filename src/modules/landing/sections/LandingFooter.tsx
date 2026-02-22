@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { PageContainer } from "@/components/layout/PageContainer";
 import {
   footerNavLinks,
@@ -11,7 +12,7 @@ export function LandingFooter() {
       <PageContainer className="max-w-6xl">
         <div className="flex flex-col gap-6 py-10 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
-            <p className="text-sm font-semibold">Dhurandhar Career Academy</p>
+            <BrandLogo href="/" />
             <p className="text-xs text-muted-foreground">
               Competitive exam prep for focused, results-driven students.
             </p>

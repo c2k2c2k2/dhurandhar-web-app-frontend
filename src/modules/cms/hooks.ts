@@ -5,6 +5,7 @@ import * as api from "./api";
 import type {
   AnnouncementCreateInput,
   AnnouncementUpdateInput,
+  AppConfigCreateInput,
   BannerCreateInput,
   BannerUpdateInput,
   CmsPageCreateInput,
@@ -15,6 +16,7 @@ import type {
 } from "./types";
 import type {
   AnnouncementFilters,
+  AppConfigFilters,
   BannerFilters,
   HomeSectionFilters,
   PageFilters,
@@ -34,6 +36,7 @@ const homeSectionsKey = (filters: HomeSectionFilters) => [
   filters,
 ];
 const pagesKey = (filters: PageFilters) => ["admin", "cms", "pages", filters];
+const configsKey = (filters: AppConfigFilters) => ["admin", "cms", "configs", filters];
 
 export function useBanners(filters: BannerFilters = {}) {
   return useQuery({
@@ -203,6 +206,35 @@ export function useUnpublishPage() {
     mutationFn: (pageId: string) => api.unpublishPage(pageId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin", "cms", "pages"] });
+    },
+  });
+}
+
+export function useConfigs(filters: AppConfigFilters = {}) {
+  return useQuery({
+    queryKey: configsKey(filters),
+    queryFn: () => api.listConfigs(filters),
+  });
+}
+
+export function useCreateConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AppConfigCreateInput) => api.createConfig(input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "cms", "configs"] });
+      await queryClient.invalidateQueries({ queryKey: ["student", "plans"] });
+      await queryClient.invalidateQueries({ queryKey: ["student", "tests"] });
+    },
+  });
+}
+
+export function usePublishConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (configId: string) => api.publishConfig(configId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "cms", "configs"] });
     },
   });
 }

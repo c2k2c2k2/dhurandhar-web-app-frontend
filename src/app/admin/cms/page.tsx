@@ -26,6 +26,11 @@ const CMS_CARDS = [
     description: "Static pages like About, Contact, Policies.",
     href: "/admin/cms/pages",
   },
+  {
+    title: "Settings",
+    description: "Manage app languages and test preset configurations.",
+    href: "/admin/cms/settings",
+  },
 ];
 
 export default function AdminCmsPage() {

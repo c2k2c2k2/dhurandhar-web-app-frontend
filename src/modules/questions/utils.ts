@@ -2,23 +2,66 @@
 
 import type { QuestionContentBlock } from "./types";
 
-export function extractText(value: unknown): string {
+function extractLocalizedString(
+  value: Record<string, unknown>,
+  language: string,
+): string | null {
+  const byLanguage = value[language];
+  if (typeof byLanguage === "string") {
+    return byLanguage;
+  }
+
+  const translations = value.translations;
+  if (translations && typeof translations === "object") {
+    const translated = (translations as Record<string, unknown>)[language];
+    if (typeof translated === "string") {
+      return translated;
+    }
+    const fallbackEn = (translations as Record<string, unknown>).en;
+    if (typeof fallbackEn === "string") {
+      return fallbackEn;
+    }
+  }
+
+  const text = value.text;
+  if (text && typeof text === "object") {
+    const translated = (text as Record<string, unknown>)[language];
+    if (typeof translated === "string") {
+      return translated;
+    }
+    const fallbackEn = (text as Record<string, unknown>).en;
+    if (typeof fallbackEn === "string") {
+      return fallbackEn;
+    }
+  }
+
+  return null;
+}
+
+export function extractText(value: unknown, language = "en"): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
   if (Array.isArray(value)) {
-    return value.map(extractText).join(" ").trim();
+    return value.map((item) => extractText(item, language)).join(" ").trim();
   }
   if (typeof value === "object") {
     const obj = value as Record<string, unknown>;
+    const localized = extractLocalizedString(obj, language);
+    if (localized) {
+      return localized;
+    }
     if (typeof obj.text === "string") {
       return obj.text;
     }
     if (Array.isArray(obj.blocks)) {
-      return obj.blocks.map(extractText).join(" ").trim();
+      return obj.blocks.map((item) => extractText(item, language)).join(" ").trim();
     }
-    return Object.values(obj).map(extractText).join(" ").trim();
+    return Object.values(obj)
+      .map((item) => extractText(item, language))
+      .join(" ")
+      .trim();
   }
   return "";
 }
@@ -51,7 +94,7 @@ export function buildContent(
   return content;
 }
 
-export function normalizeOptions(value: unknown) {
+export function normalizeOptions(value: unknown, language = "en") {
   let rawOptions: unknown[] = [];
   if (Array.isArray(value)) {
     rawOptions = value;
@@ -63,7 +106,7 @@ export function normalizeOptions(value: unknown) {
   }
 
   const mapped = rawOptions.map((option) => ({
-    text: extractText(option),
+    text: extractText(option, language),
     imageAssetId: extractImageAssetId(option),
   }));
 

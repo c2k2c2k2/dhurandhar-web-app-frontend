@@ -9,6 +9,7 @@ const CMS_NAV_ITEMS = [
   { label: "Announcements", href: "/admin/cms/announcements" },
   { label: "Home Sections", href: "/admin/cms/home-sections" },
   { label: "Pages", href: "/admin/cms/pages" },
+  { label: "Settings", href: "/admin/cms/settings" },
 ];
 
 export function CmsSubNav() {

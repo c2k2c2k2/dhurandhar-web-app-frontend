@@ -5,6 +5,8 @@ import type {
   Announcement,
   AnnouncementCreateInput,
   AnnouncementUpdateInput,
+  AppConfig,
+  AppConfigCreateInput,
   Banner,
   BannerCreateInput,
   BannerUpdateInput,
@@ -37,6 +39,13 @@ export type HomeSectionFilters = {
 export type PageFilters = {
   status?: PageStatus;
   slug?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export type AppConfigFilters = {
+  key?: string;
+  status?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   page?: number;
   pageSize?: number;
 };
@@ -194,6 +203,33 @@ export async function publishPage(pageId: string) {
 
 export async function unpublishPage(pageId: string) {
   return apiFetch<CmsPage>(`/admin/cms/pages/${pageId}/unpublish`, {
+    method: "POST",
+  });
+}
+
+export async function listConfigs(filters: AppConfigFilters = {}) {
+  const params = new URLSearchParams();
+  if (filters.key) params.set("key", filters.key);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.page) params.set("page", String(filters.page));
+  if (filters.pageSize) params.set("pageSize", String(filters.pageSize));
+  const queryString = params.toString();
+  const data = await apiFetch<unknown>(
+    `/admin/cms/configs${queryString ? `?${queryString}` : ""}`,
+    { method: "GET" },
+  );
+  return normalizeList<AppConfig>(data);
+}
+
+export async function createConfig(input: AppConfigCreateInput) {
+  return apiFetch<AppConfig>("/admin/cms/configs", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function publishConfig(configId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/cms/configs/${configId}/publish`, {
     method: "POST",
   });
 }

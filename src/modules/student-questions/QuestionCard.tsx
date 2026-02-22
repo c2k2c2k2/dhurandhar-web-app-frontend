@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/modules/i18n";
 import {
   extractImageAssetId,
   extractText,
@@ -28,11 +29,13 @@ function resolveAssetUrl(assetId?: string) {
 
 function QuestionContent({
   content,
+  language,
 }: {
   content?: QuestionContentBlock | string | null;
+  language: string;
 }) {
   if (!content) return null;
-  const text = extractText(content);
+  const text = extractText(content, language);
   const imageAssetId = extractImageAssetId(content);
   const imageUrl = resolveAssetUrl(imageAssetId);
 
@@ -133,18 +136,19 @@ export function QuestionCard({
   disabled?: boolean;
   showMeta?: boolean;
 }) {
+  const { language, t } = useI18n();
   const isMulti = question.type === "MULTI_CHOICE";
   const isChoice = ["SINGLE_CHOICE", "MULTI_CHOICE", "TRUE_FALSE"].includes(
     question.type
   );
   const isInteger = question.type === "INTEGER";
 
-  const rawOptions = normalizeOptions(question.optionsJson);
+  const rawOptions = normalizeOptions(question.optionsJson, language);
   let options = rawOptions.filter((option) => option.text || option.imageAssetId);
   if (question.type === "TRUE_FALSE" && options.length === 0) {
     options = [
-      { text: "True", imageAssetId: undefined },
-      { text: "False", imageAssetId: undefined },
+      { text: t("student.question.true", "True"), imageAssetId: undefined },
+      { text: t("student.question.false", "False"), imageAssetId: undefined },
     ];
   }
 
@@ -206,7 +210,7 @@ export function QuestionCard({
         </div>
       ) : null}
 
-      <QuestionContent content={question.statementJson} />
+      <QuestionContent content={question.statementJson} language={language} />
 
       {isChoice && options.length > 0 ? (
         <div className="space-y-3">

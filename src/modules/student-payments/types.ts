@@ -7,6 +7,32 @@ export type StudentPlan = {
   durationDays: number;
   metadataJson?: Record<string, unknown> | null;
   featuresJson?: unknown;
+  validity?: {
+    unit: "DAYS" | "MONTHS" | "YEARS" | "LIFETIME";
+    value?: number | null;
+    durationDays: number;
+    label: string;
+  };
+};
+
+export type PlanPurchase = {
+  canPurchase: boolean;
+  mode: "NEW" | "RENEW" | "BLOCKED";
+  reason?: string;
+  message?: string;
+  renewalWindowDays?: number;
+  daysUntilExpiry?: number | null;
+  renewalOpensAt?: string | null;
+};
+
+export type StudentPlanOption = StudentPlan & {
+  purchase: PlanPurchase;
+  activeSubscription?: {
+    id: string;
+    status: "ACTIVE" | "EXPIRED" | "CANCELLED" | "PENDING";
+    startsAt?: string | null;
+    endsAt?: string | null;
+  } | null;
 };
 
 export type CheckoutResponse = {

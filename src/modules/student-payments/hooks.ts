@@ -8,6 +8,13 @@ export function usePlans() {
   });
 }
 
+export function usePlanOptions() {
+  return useQuery({
+    queryKey: ["student", "plans", "options"],
+    queryFn: api.listPlanOptions,
+  });
+}
+
 export function useCreateOrder() {
   return useMutation({
     mutationFn: (payload: { planId: string; couponCode?: string }) =>

@@ -1,7 +1,13 @@
 "use client";
 
 import { apiFetch } from "@/lib/api/client";
-import type { TestCreateInput, TestItem, TestListResponse, TestType } from "./types";
+import type {
+  TestCreateInput,
+  TestItem,
+  TestListResponse,
+  TestPreset,
+  TestType,
+} from "./types";
 
 export type TestFilters = {
   subjectId?: string;
@@ -79,4 +85,12 @@ export async function unpublishTest(testId: string) {
   return apiFetch<TestItem>(`/admin/tests/${testId}/unpublish`, {
     method: "POST",
   });
+}
+
+export async function listTestPresets() {
+  const response = await apiFetch<{ data?: TestPreset[] }>(
+    "/admin/tests/presets",
+    { method: "GET" },
+  );
+  return response?.data ?? [];
 }

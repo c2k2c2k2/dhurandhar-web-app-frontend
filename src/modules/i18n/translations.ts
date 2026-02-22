@@ -1,0 +1,66 @@
+export type AppLanguage = "en" | "hi" | "mr";
+
+export const LANGUAGE_LABELS: Record<AppLanguage, string> = {
+  en: "English",
+  hi: "हिंदी",
+  mr: "मराठी",
+};
+
+export const DEFAULT_LANGUAGES: AppLanguage[] = ["en", "hi", "mr"];
+
+export const TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
+  en: {
+    "common.upgrade": "Upgrade",
+    "common.logout": "Logout",
+    "common.loading": "Loading...",
+    "student.search.placeholder": "Search notes, tests, topics",
+    "student.goal": "Goal: 2 hrs today",
+    "student.greeting": "Namaste",
+    "student.payments.heading": "Choose a plan that fits your prep",
+    "student.payments.subheading": "Unlock premium notes, tests, and practice packs for your exams.",
+    "student.tests.heading": "Timed mocks + sectionals",
+    "student.tests.subheading": "Start a test to unlock your score and analysis.",
+    "student.tests.start": "Start test",
+    "student.tests.available": "Available tests",
+    "student.tests.attempts": "Your recent attempts",
+    "student.question.true": "True",
+    "student.question.false": "False",
+    "language.label": "Language",
+  },
+  hi: {
+    "common.upgrade": "अपग्रेड",
+    "common.logout": "लॉगआउट",
+    "common.loading": "लोड हो रहा है...",
+    "student.search.placeholder": "नोट्स, टेस्ट, टॉपिक खोजें",
+    "student.goal": "लक्ष्य: आज 2 घंटे",
+    "student.greeting": "नमस्ते",
+    "student.payments.heading": "अपनी तैयारी के अनुसार प्लान चुनें",
+    "student.payments.subheading": "प्रीमियम नोट्स, टेस्ट और प्रैक्टिस पैक अनलॉक करें।",
+    "student.tests.heading": "टाइम्ड मॉक + सेक्शनल",
+    "student.tests.subheading": "स्कोर और विश्लेषण के लिए टेस्ट शुरू करें।",
+    "student.tests.start": "टेस्ट शुरू करें",
+    "student.tests.available": "उपलब्ध टेस्ट",
+    "student.tests.attempts": "आपके हाल के प्रयास",
+    "student.question.true": "सही",
+    "student.question.false": "गलत",
+    "language.label": "भाषा",
+  },
+  mr: {
+    "common.upgrade": "अपग्रेड",
+    "common.logout": "लॉगआउट",
+    "common.loading": "लोड होत आहे...",
+    "student.search.placeholder": "नोट्स, टेस्ट, टॉपिक्स शोधा",
+    "student.goal": "लक्ष्य: आज 2 तास",
+    "student.greeting": "नमस्कार",
+    "student.payments.heading": "तुमच्या तयारीसाठी योग्य प्लॅन निवडा",
+    "student.payments.subheading": "प्रीमियम नोट्स, टेस्ट आणि प्रॅक्टिस पॅक अनलॉक करा.",
+    "student.tests.heading": "टाइम्ड मॉक + सेक्शनल",
+    "student.tests.subheading": "स्कोअर आणि विश्लेषणासाठी टेस्ट सुरू करा.",
+    "student.tests.start": "टेस्ट सुरू करा",
+    "student.tests.available": "उपलब्ध टेस्ट",
+    "student.tests.attempts": "तुमचे अलीकडील प्रयत्न",
+    "student.question.true": "बरोबर",
+    "student.question.false": "चूक",
+    "language.label": "भाषा",
+  },
+};

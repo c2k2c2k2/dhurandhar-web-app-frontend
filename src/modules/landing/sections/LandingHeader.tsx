@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { cn } from "@/lib/utils";
@@ -43,17 +44,11 @@ export function LandingHeader() {
     >
       <PageContainer className="max-w-6xl">
         <div className="flex items-center justify-between py-4">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-              <span className="font-display text-lg font-semibold">D</span>
-            </div>
-            <div>
-              <p className="text-sm font-semibold">Dhurandhar</p>
-              <p className="text-xs text-muted-foreground">
-                Career Academy
-              </p>
-            </div>
-          </Link>
+          <BrandLogo
+            href="/"
+            imageClassName="h-11 w-11"
+            priority
+          />
 
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
             {navItems.map((item) => (

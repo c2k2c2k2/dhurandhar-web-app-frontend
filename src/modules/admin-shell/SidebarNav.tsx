@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { NAV_ITEMS } from "@/modules/admin-shell/nav";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { hasAnyPermission } from "@/lib/auth/permissions";
@@ -19,15 +20,11 @@ export function SidebarNav() {
 
   return (
     <aside className="hidden w-64 flex-col border-r border-border bg-background lg:flex">
-      <div className="flex h-16 items-center px-6">
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold text-foreground">
-            Dhurandhar
-          </span>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-            Admin
-          </span>
-        </div>
+      <div className="flex h-16 items-center justify-between px-6">
+        <BrandLogo href="/admin" imageClassName="h-9 w-9 rounded-xl" />
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+          Admin
+        </span>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
         {items.map((item) => {

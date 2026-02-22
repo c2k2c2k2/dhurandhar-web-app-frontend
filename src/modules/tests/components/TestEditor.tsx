@@ -26,7 +26,7 @@ import { getQuestion } from "@/modules/questions/api";
 import { extractText, truncateText } from "@/modules/questions/utils";
 import { TestFormSchema, type TestFormValues } from "../schemas";
 import type { TestConfig, TestItem, TestType } from "../types";
-import { useCreateTest, useTest, useUpdateTest } from "../hooks";
+import { useCreateTest, useTest, useTestPresets, useUpdateTest } from "../hooks";
 
 function getTopicName(topic: Topic) {
   return topic.name || topic.title || "Untitled";
@@ -57,6 +57,16 @@ function parseQuestionIds(text?: string) {
     .filter(Boolean);
 }
 
+function parseSectionsJson(text?: string) {
+  const trimmed = text?.trim();
+  if (!trimmed) return undefined;
+  const parsed = JSON.parse(trimmed) as unknown;
+  if (!Array.isArray(parsed)) {
+    throw new Error("Sections JSON must be an array.");
+  }
+  return parsed as TestConfig["sections"];
+}
+
 function mapTestToForm(test: TestItem): TestFormValues {
   const config = (test.configJson || {}) as TestConfig;
   const questionIds =
@@ -74,8 +84,14 @@ function mapTestToForm(test: TestItem): TestFormValues {
     mixerCount: config.mixer?.count ?? undefined,
     mixerDifficulty: config.mixer?.difficulty,
     mixerTopicIds: config.mixer?.topicIds ?? [],
+    presetKey: config.presetKey ?? "",
     questionIdsText: questionIds.join("\n"),
+    sectionsJson: Array.isArray(config.sections)
+      ? JSON.stringify(config.sections, null, 2)
+      : "",
+    durationMinutes: config.durationMinutes ?? undefined,
     marksPerQuestion: config.marksPerQuestion ?? undefined,
+    negativeMarksPerWrong: config.negativeMarksPerWrong ?? undefined,
     isPublished: test.isPublished,
   };
 }
@@ -111,8 +127,12 @@ export function TestEditor({ testId }: { testId?: string }) {
       mixerCount: undefined,
       mixerDifficulty: undefined,
       mixerTopicIds: [],
+      presetKey: "",
       questionIdsText: "",
+      sectionsJson: "",
+      durationMinutes: undefined,
       marksPerQuestion: undefined,
+      negativeMarksPerWrong: undefined,
       isPublished: false,
     },
   });
@@ -120,9 +140,11 @@ export function TestEditor({ testId }: { testId?: string }) {
   const selectedSubjectId = form.watch("subjectId");
   const currentType = form.watch("type");
   const questionIdsText = form.watch("questionIdsText") || "";
+  const presetKey = form.watch("presetKey") || "";
   const { data: topics, isLoading: topicsLoading } = useTopics(
     selectedSubjectId || undefined
   );
+  const { data: presets = [] } = useTestPresets();
 
   const createTest = useCreateTest();
   const updateTest = useUpdateTest();
@@ -140,16 +162,44 @@ export function TestEditor({ testId }: { testId?: string }) {
     if (values.type === "CUSTOM") {
       config.questionIds = questionIds;
     } else {
-      config.mixer = {
-        subjectId: values.subjectId || undefined,
-        topicIds: values.mixerTopicIds?.length ? values.mixerTopicIds : undefined,
-        difficulty: values.mixerDifficulty,
-        count: values.mixerCount || 0,
-      };
+      if (values.presetKey) {
+        config.presetKey = values.presetKey;
+      } else {
+        config.mixer = {
+          subjectId: values.subjectId || undefined,
+          topicIds: values.mixerTopicIds?.length ? values.mixerTopicIds : undefined,
+          difficulty: values.mixerDifficulty,
+          count: values.mixerCount || 0,
+        };
+      }
+    }
+
+    try {
+      if (values.sectionsJson?.trim()) {
+        config.sections = parseSectionsJson(values.sectionsJson);
+      }
+    } catch (err) {
+      toast({
+        title: "Invalid sections JSON",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Unable to parse sections JSON.",
+        variant: "destructive",
+      });
+      return;
     }
 
     if (values.marksPerQuestion) {
       config.marksPerQuestion = values.marksPerQuestion;
+    }
+
+    if (values.durationMinutes) {
+      config.durationMinutes = values.durationMinutes;
+    }
+
+    if (values.negativeMarksPerWrong !== undefined) {
+      config.negativeMarksPerWrong = values.negativeMarksPerWrong;
     }
 
     const payload = {
@@ -369,65 +419,134 @@ export function TestEditor({ testId }: { testId?: string }) {
               </div>
             ) : (
               <div className="space-y-4">
-                <FormInput
-                  label="Question Count"
-                  type="number"
-                  placeholder="e.g., 50"
-                  error={form.formState.errors.mixerCount?.message}
-                  {...form.register("mixerCount", {
-                    setValueAs: (value) => {
-                      if (value === "" || value === null || value === undefined) {
-                        return undefined;
-                      }
-                      const parsed = Number(value);
-                      return Number.isNaN(parsed) ? undefined : parsed;
-                    },
-                  })}
-                />
                 <FormSelect
-                  label="Difficulty"
-                  value={form.watch("mixerDifficulty") || ""}
-                  onChange={(event) =>
-                    form.setValue(
-                      "mixerDifficulty",
-                      event.target.value
-                        ? (event.target.value as TestFormValues["mixerDifficulty"])
-                        : undefined
-                    )
-                  }
+                  label="Preset (optional)"
+                  value={presetKey}
+                  onChange={(event) => {
+                    form.setValue("presetKey", event.target.value);
+                    if (!event.target.value) return;
+                    const preset = presets.find((item) => item.key === event.target.value);
+                    if (!preset) return;
+                    form.setValue("durationMinutes", preset.durationMinutes);
+                    form.setValue("marksPerQuestion", preset.marksPerQuestion);
+                    form.setValue("negativeMarksPerWrong", preset.negativeMarksPerWrong);
+                    form.setValue("sectionsJson", JSON.stringify(preset.sections, null, 2));
+                  }}
                 >
-                  <option value="">All difficulties</option>
-                  <option value="EASY">Easy</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="HARD">Hard</option>
+                  <option value="">No preset (use mixer)</option>
+                  {presets.map((preset) => (
+                    <option key={preset.key} value={preset.key}>
+                      {preset.title} ({preset.exam})
+                    </option>
+                  ))}
                 </FormSelect>
-                <MultiSelectField
-                  label="Topics"
-                  description="Optional topic filters."
-                  items={topicList}
-                  value={form.watch("mixerTopicIds") || []}
-                  onChange={(next) => form.setValue("mixerTopicIds", next)}
-                  loading={topicsLoading}
-                  emptyLabel="No topics found for this subject."
-                  searchPlaceholder="Search topics..."
-                  modalTitle="Select topics"
-                  modalDescription="Pick topics for the mixer."
-                  selectLabel="Select topics"
-                  editLabel="Edit topics"
-                  disabled={!selectedSubjectId}
+
+                {!presetKey ? (
+                  <>
+                    <FormInput
+                      label="Question Count"
+                      type="number"
+                      placeholder="e.g., 50"
+                      error={form.formState.errors.mixerCount?.message}
+                      {...form.register("mixerCount", {
+                        setValueAs: (value) => {
+                          if (value === "" || value === null || value === undefined) {
+                            return undefined;
+                          }
+                          const parsed = Number(value);
+                          return Number.isNaN(parsed) ? undefined : parsed;
+                        },
+                      })}
+                    />
+                    <FormSelect
+                      label="Difficulty"
+                      value={form.watch("mixerDifficulty") || ""}
+                      onChange={(event) =>
+                        form.setValue(
+                          "mixerDifficulty",
+                          event.target.value
+                            ? (event.target.value as TestFormValues["mixerDifficulty"])
+                            : undefined
+                        )
+                      }
+                    >
+                      <option value="">All difficulties</option>
+                      <option value="EASY">Easy</option>
+                      <option value="MEDIUM">Medium</option>
+                      <option value="HARD">Hard</option>
+                    </FormSelect>
+                    <MultiSelectField
+                      label="Topics"
+                      description="Optional topic filters."
+                      items={topicList}
+                      value={form.watch("mixerTopicIds") || []}
+                      onChange={(next) => form.setValue("mixerTopicIds", next)}
+                      loading={topicsLoading}
+                      emptyLabel="No topics found for this subject."
+                      searchPlaceholder="Search topics..."
+                      modalTitle="Select topics"
+                      modalDescription="Pick topics for the mixer."
+                      selectLabel="Select topics"
+                      editLabel="Edit topics"
+                      disabled={!selectedSubjectId}
+                    />
+                    <div className="rounded-2xl border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+                      Questions are selected when the test starts based on the mixer
+                      rules. There is no fixed list to display in advance.
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
+                    Preset is active. You can adjust sections using the JSON field below.
+                  </div>
+                )}
+
+                <FormTextarea
+                  label="Sections JSON (optional)"
+                  description="Use to define section-wise count/time/marking rules."
+                  error={form.formState.errors.sectionsJson?.message}
+                  className="min-h-[170px]"
+                  placeholder='[{\"key\":\"reasoning\",\"title\":\"Reasoning\",\"count\":15}]'
+                  {...form.register("sectionsJson")}
                 />
-                <div className="rounded-2xl border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
-                  Questions are selected when the test starts based on the mixer
-                  rules. There is no fixed list to display in advance.
-                </div>
               </div>
             )}
+            <FormInput
+              label="Duration (minutes)"
+              type="number"
+              placeholder="e.g., 60"
+              error={form.formState.errors.durationMinutes?.message}
+              {...form.register("durationMinutes", {
+                setValueAs: (value) => {
+                  if (value === "" || value === null || value === undefined) {
+                    return undefined;
+                  }
+                  const parsed = Number(value);
+                  return Number.isNaN(parsed) ? undefined : parsed;
+                },
+              })}
+            />
             <FormInput
               label="Marks Per Question"
               type="number"
               placeholder="Optional"
               error={form.formState.errors.marksPerQuestion?.message}
               {...form.register("marksPerQuestion", {
+                setValueAs: (value) => {
+                  if (value === "" || value === null || value === undefined) {
+                    return undefined;
+                  }
+                  const parsed = Number(value);
+                  return Number.isNaN(parsed) ? undefined : parsed;
+                },
+              })}
+            />
+            <FormInput
+              label="Negative Marks / Wrong"
+              type="number"
+              placeholder="e.g., 0.25"
+              error={form.formState.errors.negativeMarksPerWrong?.message}
+              {...form.register("negativeMarksPerWrong", {
                 setValueAs: (value) => {
                   if (value === "" || value === null || value === undefined) {
                     return undefined;

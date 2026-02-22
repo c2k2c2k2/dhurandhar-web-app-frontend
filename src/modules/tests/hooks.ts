@@ -14,6 +14,13 @@ export function useTests(filters: TestFilters = {}) {
   });
 }
 
+export function useTestPresets() {
+  return useQuery({
+    queryKey: ["admin", "tests", "presets"],
+    queryFn: api.listTestPresets,
+  });
+}
+
 export function useTest(testId?: string) {
   return useQuery({
     queryKey: ["admin", "tests", "detail", testId],

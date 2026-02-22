@@ -5,6 +5,7 @@ import {
   Poppins,
 } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { I18nProvider } from "@/modules/i18n";
 import "./globals.css";
 
 const inter = Inter({
@@ -27,6 +28,11 @@ const notoSansDevanagari = Noto_Sans_Devanagari({
 export const metadata: Metadata = {
   title: "Dhurandhar Career Academy",
   description: "Dhurandhar Career Academy platform",
+  icons: {
+    icon: "/brand/logo.jpeg",
+    shortcut: "/brand/logo.jpeg",
+    apple: "/brand/logo.jpeg",
+  },
 };
 
 export default function RootLayout({
@@ -39,7 +45,9 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${poppins.variable} ${notoSansDevanagari.variable} min-h-screen bg-background text-foreground font-sans antialiased`}
       >
-        <ThemeProvider>{children}</ThemeProvider>
+        <I18nProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </I18nProvider>
       </body>
     </html>
   );

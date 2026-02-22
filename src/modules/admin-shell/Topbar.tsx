@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Menu } from "lucide-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -33,9 +34,12 @@ export function Topbar() {
         >
           <Menu className="h-4 w-4" />
         </Button>
-        <div className="hidden text-sm font-semibold text-foreground sm:block lg:hidden">
-          Admin
-        </div>
+        <BrandLogo
+          href="/admin"
+          showText={false}
+          imageClassName="h-8 w-8 rounded-xl"
+          className="lg:hidden"
+        />
         <div className="flex flex-1 justify-center lg:justify-start">
           <GlobalSearch />
         </div>
