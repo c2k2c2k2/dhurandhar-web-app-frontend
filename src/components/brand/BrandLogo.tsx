@@ -22,8 +22,8 @@ export function BrandLogo({
   textClassName,
   titleClassName,
   subtitleClassName,
-  title = "Dhurandhar",
-  subtitle = "Career Academy",
+  title = "Dhurandhar Sir",
+  subtitle = "Career Point Academy",
   showText = true,
   priority = false,
 }: BrandLogoProps) {

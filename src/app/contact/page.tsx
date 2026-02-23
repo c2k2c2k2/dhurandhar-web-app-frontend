@@ -8,22 +8,24 @@ export default function ContactPage() {
     >
       <section className="space-y-3">
         <p>
-          Support Email: [Support Email]
+          Business Name: Dhurandhar Sir Career Point Academy
           <br />
-          Support Phone: [Support Phone]
+          Contact Person: Prof. Dipak Dhurandhar
           <br />
-          Business Hours: [Mon-Sat, 10:00 AM - 7:00 PM IST]
+          Support Email: info@dhurandhars.online
+          <br />
+          Support Phone: +91 9545789817
+          <br />
+          Business Type: Individual Proprietor
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">Office Address</h2>
         <p>
-          [Company Name]
+          Khandelwal Market, Sundarlal Chowk, Camp
           <br />
-          [Full Address Line 1]
-          <br />
-          [City, State, PIN]
+          Amravati-444602, Maharashtra
           <br />
           India
         </p>

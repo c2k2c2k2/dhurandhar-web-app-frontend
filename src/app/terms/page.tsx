@@ -4,95 +4,145 @@ export default function TermsPage() {
   return (
     <PolicyLayout
       title="Terms and Conditions"
-      subtitle="Effective Date: [DD Month YYYY] | Last Updated: [DD Month YYYY]"
+      subtitle="Effective Date: February 23, 2026 | Last Updated: February 23, 2026"
     >
       <section className="space-y-3">
         <p>
-          Welcome to [Platform Name] operated by [Company Name]. By accessing or
-          using our Service, you agree to these Terms.
+          Welcome to Dhurandhar Sir Career Point Academy. By accessing or using
+          this website, purchasing any subscription, or using any paid or free
+          educational content, you agree to these Terms and Conditions.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">
-          1. Eligibility and Account
+          1. Business Identity
+        </h2>
+        <p>
+          Dhurandhar Sir Career Point Academy is operated by an individual
+          proprietor and not by a registered company entity. For all policy and
+          support communication, the details listed in the Contact section of
+          this page apply.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold text-foreground">
+          2. Eligibility and Account
         </h2>
         <ul className="list-disc space-y-2 pl-5">
-          <li>You must provide accurate registration details.</li>
-          <li>You are responsible for maintaining account confidentiality.</li>
-          <li>You are responsible for all activity under your account.</li>
+          <li>
+            You must provide accurate information at the time of registration
+            and purchase.
+          </li>
+          <li>
+            You are responsible for maintaining confidentiality of your login
+            credentials.
+          </li>
+          <li>
+            You are responsible for all activity carried out through your
+            account.
+          </li>
         </ul>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">
-          2. Service Description
+          3. Service Description
         </h2>
         <p>
-          The Service provides educational content such as notes, practice sets,
-          tests, and analytics. Features may vary by plan and may change over
-          time.
+          We provide digital educational products in the form of notes, practice
+          tests, and related learning services for competitive examinations.
+          Access to content and features depends on the subscription or plan
+          purchased.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">
-          3. Subscriptions and Payments
+          4. Subscriptions and Payments
         </h2>
         <ul className="list-disc space-y-2 pl-5">
-          <li>Paid features require an active subscription or purchase.</li>
-          <li>Pricing and plan benefits are shown before checkout.</li>
-          <li>Taxes and payment gateway fees may apply.</li>
+          <li>
+            Paid features require a successful purchase of the relevant
+            subscription or plan.
+          </li>
+          <li>
+            Subscription validity, pricing, and plan benefits are shown before
+            checkout.
+          </li>
+          <li>
+            You agree to pay all applicable charges at the time of purchase.
+          </li>
         </ul>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">
-          4. Content Access and Usage Restrictions
+          5. No Refund and No Return
         </h2>
         <p>
-          All content is owned by [Company Name] or licensed to us. You agree
-          that you will not:
+          As we provide only digital products and subscription-based educational
+          services, all purchases are final. We do not provide refunds or
+          returns for any subscription, notes, tests, or related services once
+          purchased.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold text-foreground">
+          6. Content Access and Usage Restrictions
+        </h2>
+        <p>
+          All content is owned by Dhurandhar Sir Career Point Academy (or used
+          under lawful rights). You agree that you will not:
         </p>
         <ul className="list-disc space-y-2 pl-5">
-          <li>Copy, reproduce, redistribute, or sell content.</li>
-          <li>Record screens or bypass security controls.</li>
+          <li>Copy, reproduce, redistribute, resell, or commercially use content.</li>
+          <li>
+            Record, capture, download, or share protected content without
+            permission.
+          </li>
           <li>Share accounts or enable unauthorized access.</li>
         </ul>
-        <p>Violations may lead to suspension or termination without refund.</p>
+        <p>
+          Violations may lead to suspension or permanent termination of access
+          without notice.
+        </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">5. User Conduct</h2>
+        <h2 className="text-base font-semibold text-foreground">7. User Conduct</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>Do not harass, abuse, or harm others.</li>
           <li>Do not upload malicious code or attempt unauthorized access.</li>
-          <li>Do not misuse platform features or attempt fraud.</li>
+          <li>Do not misuse platform features or attempt payment fraud.</li>
         </ul>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">
-          6. Intellectual Property
+          8. Intellectual Property
         </h2>
         <p>
-          All trademarks, logos, content, and platform design belong to
-          [Company Name] (or licensors). Unauthorized use is prohibited.
+          All trademarks, branding, logos, notes, test content, and platform
+          design are protected. Unauthorized use is prohibited.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">
-          7. Availability and Changes
+          9. Availability and Changes
         </h2>
         <p>
-          We aim to keep the Service available but do not guarantee uninterrupted
-          access. We may update, modify, or discontinue features.
+          We aim to keep services available, but uninterrupted access is not
+          guaranteed. We may update, modify, or discontinue any feature, plan,
+          or content at our discretion.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">8. Termination</h2>
+        <h2 className="text-base font-semibold text-foreground">10. Termination</h2>
         <p>We may suspend or terminate access if:</p>
         <ul className="list-disc space-y-2 pl-5">
           <li>You violate these Terms.</li>
@@ -103,38 +153,44 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">9. Disclaimers</h2>
+        <h2 className="text-base font-semibold text-foreground">11. Disclaimers</h2>
         <p>
-          The Service is provided "as is". We do not guarantee exam results or
-          specific outcomes. Educational performance depends on individual
-          effort and conditions.
+          The service is provided on an &quot;as available&quot; basis. We do not
+          guarantee specific exam results, ranks, or outcomes. Performance
+          depends on individual effort and multiple external factors.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">
-          10. Limitation of Liability
+          12. Limitation of Liability
         </h2>
         <p>
-          To the extent permitted by law, [Company Name] will not be liable for
-          indirect or consequential damages. Our total liability will not exceed
-          the amount paid by you in the last [X] months (if applicable).
+          To the maximum extent permitted by law, we are not liable for any
+          indirect, incidental, or consequential losses arising from your use of
+          the service.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">11. Governing Law</h2>
+        <h2 className="text-base font-semibold text-foreground">13. Governing Law</h2>
         <p>
-          These Terms are governed by the laws of India (or your applicable
-          jurisdiction). Courts at [City/State] shall have jurisdiction.
+          These Terms are governed by the laws of India. Courts in Amravati,
+          Maharashtra shall have jurisdiction for disputes related to these
+          Terms.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">12. Contact</h2>
-        <p>Email: [Support Email]</p>
-        <p>Phone: [Support Phone]</p>
-        <p>Address: [Business Address]</p>
+        <h2 className="text-base font-semibold text-foreground">14. Contact</h2>
+        <p>Business Name: Dhurandhar Sir Career Point Academy</p>
+        <p>Contact Person: Prof. Dipak Dhurandhar</p>
+        <p>Email: info@dhurandhars.online</p>
+        <p>Phone: +91 9545789817</p>
+        <p>
+          Address: Khandelwal Market, Sundarlal Chowk, Camp, Amravati-444602,
+          Maharashtra, India
+        </p>
       </section>
     </PolicyLayout>
   );

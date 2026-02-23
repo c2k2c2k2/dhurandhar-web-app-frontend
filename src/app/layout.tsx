@@ -7,6 +7,7 @@ import {
 import { ThemeProvider } from "@/components/theme-provider";
 import { I18nProvider } from "@/modules/i18n";
 import "./globals.css";
+import "react-image-crop/dist/ReactCrop.css";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -26,8 +27,8 @@ const notoSansDevanagari = Noto_Sans_Devanagari({
 });
 
 export const metadata: Metadata = {
-  title: "Dhurandhar Career Academy",
-  description: "Dhurandhar Career Academy platform",
+  title: "Dhurandhar Sir Career Point Academy",
+  description: "Dhurandhar Sir Career Point Academy platform",
   icons: {
     icon: "/brand/logo.jpeg",
     shortcut: "/brand/logo.jpeg",

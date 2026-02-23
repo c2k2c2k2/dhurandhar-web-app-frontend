@@ -4,91 +4,86 @@ export default function RefundPolicyPage() {
   return (
     <PolicyLayout
       title="Refund Policy"
-      subtitle="Effective Date: [DD Month YYYY] | Last Updated: [DD Month YYYY]"
+      subtitle="Effective Date: February 23, 2026 | Last Updated: February 23, 2026"
     >
       <section className="space-y-3">
         <p>
-          This Refund Policy describes refund and cancellation terms for
-          purchases made on [Platform Name].
+          This Refund Policy applies to all purchases made on Dhurandhar Sir
+          Career Point Academy.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">
-          1. Subscription Plans
+          1. Nature of Product
+        </h2>
+        <p>
+          We provide digital educational products and services, including notes,
+          practice tests, and subscription-based learning access for competitive
+          examination preparation.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold text-foreground">
+          2. No Refund and No Return
+        </h2>
+        <p>
+          All purchases are final. Since the products and services are digital
+          in nature, we do not provide refunds, cancellations, or returns after
+          a successful payment.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold text-foreground">
+          3. Subscription Access
+        </h2>
+        <p>
+          Subscription plans provide access to the purchased services for their
+          defined validity period. Access begins after successful payment
+          confirmation.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold text-foreground">
+          4. User Responsibility
         </h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            Subscriptions provide access to premium content and features for the
-            period purchased.
-          </li>
-          <li>
-            Subscription benefits are available immediately after successful
+            Please review plan details, features, and validity before making a
             payment.
           </li>
-        </ul>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">
-          2. Refund Eligibility
-        </h2>
-        <p>Refunds may be considered only if:</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li>Payment was deducted but subscription was not activated.</li>
-          <li>Duplicate payment occurred for the same purchase.</li>
           <li>
-            A technical issue from our side prevents access and is not resolved
-            within a reasonable time.
+            By completing a purchase, you acknowledge and accept this No Refund
+            and No Return Policy.
           </li>
         </ul>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">
-          3. Non-Refundable Cases
+          5. Policy Updates
         </h2>
-        <p>Refunds will generally not be provided for:</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li>Change of mind after purchase.</li>
-          <li>Partial use of subscription period.</li>
-          <li>Account sharing or violation of Terms.</li>
-          <li>Issues caused by user device or network conditions.</li>
-        </ul>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">4. Cancellation</h2>
         <p>
-          You may cancel renewal (if auto-renewal exists) from your account
-          settings. Cancellation stops future billing; current period access
-          remains until expiry unless stated otherwise.
+          We may update this policy from time to time. Changes will be effective
+          once published on this page.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">
-          5. Refund Processing Time
+          6. Contact Information
         </h2>
+        <p>Business Name: Dhurandhar Sir Career Point Academy</p>
+        <p>Contact Person: Prof. Dipak Dhurandhar</p>
+        <p>Email: info@dhurandhars.online</p>
+        <p>Phone: +91 9545789817</p>
         <p>
-          If approved, refunds are processed to the original payment method.
-          Timeline depends on the payment partner or bank (typically 5 to 10
-          business days).
+          Address: Khandelwal Market, Sundarlal Chowk, Camp, Amravati-444602,
+          Maharashtra, India
         </p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">
-          6. How to Request a Refund
-        </h2>
-        <p>Email: [Support Email]</p>
-        <p>Please include:</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li>Registered phone or email.</li>
-          <li>Transaction ID or order reference.</li>
-          <li>Reason for request.</li>
-          <li>Screenshot (if applicable).</li>
-        </ul>
       </section>
     </PolicyLayout>
   );
