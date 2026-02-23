@@ -95,6 +95,40 @@ export function buildContent(
 }
 
 export function normalizeOptions(value: unknown, language = "en") {
+  const extractOptionText = (option: unknown): string => {
+    if (option === null || option === undefined) return "";
+    if (
+      typeof option === "string" ||
+      typeof option === "number" ||
+      typeof option === "boolean"
+    ) {
+      return String(option);
+    }
+    if (Array.isArray(option)) {
+      return option
+        .map((item) => extractOptionText(item))
+        .join(" ")
+        .trim();
+    }
+    if (typeof option === "object") {
+      const obj = option as Record<string, unknown>;
+      if ("text" in obj) {
+        return extractText(obj.text, language);
+      }
+      if (Array.isArray(obj.blocks)) {
+        return obj.blocks
+          .map((item) => extractOptionText(item))
+          .join(" ")
+          .trim();
+      }
+      const localized = extractLocalizedString(obj, language);
+      if (localized) {
+        return localized;
+      }
+    }
+    return "";
+  };
+
   let rawOptions: unknown[] = [];
   if (Array.isArray(value)) {
     rawOptions = value;
@@ -106,7 +140,7 @@ export function normalizeOptions(value: unknown, language = "en") {
   }
 
   const mapped = rawOptions.map((option) => ({
-    text: extractText(option, language),
+    text: extractOptionText(option),
     imageAssetId: extractImageAssetId(option),
   }));
 
