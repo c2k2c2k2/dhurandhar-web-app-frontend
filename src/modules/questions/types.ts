@@ -11,8 +11,10 @@ export type QuestionDifficulty = "EASY" | "MEDIUM" | "HARD";
 
 export type QuestionContentBlock = {
   text?: string;
+  html?: string;
   imageAssetId?: string;
   assetId?: string;
+  format?: "RICH_TEXT_V1";
   blocks?: QuestionContentBlock[];
 };
 

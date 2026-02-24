@@ -5,7 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { hasPermission } from "@/lib/auth/permissions";
 import { useToast } from "@/modules/shared/components/Toast";
@@ -13,7 +12,6 @@ import {
   FormField,
   FormInput,
   FormSelect,
-  FormTextarea,
   FormSwitch,
 } from "@/modules/shared/components/FormField";
 import { MultiSelectField } from "@/modules/shared/components/MultiSelect";
@@ -25,9 +23,16 @@ import { useTopics } from "@/modules/taxonomy/topics/hooks";
 import type { Topic } from "@/modules/taxonomy/topics/types";
 import type { QuestionDetail, QuestionType } from "../types";
 import { QuestionFormSchema, type QuestionFormValues } from "../schemas";
-import { buildContent, extractImageAssetId, extractText, normalizeOptions } from "../utils";
+import {
+  buildContent,
+  extractHtml,
+  extractImageAssetId,
+  extractText,
+  normalizeOptions,
+} from "../utils";
 import { getAssetUrl } from "@/lib/api/assets";
 import { useCreateQuestion, useQuestion, useUpdateQuestion } from "../hooks";
+import { RichTextEditor } from "./RichTextEditor";
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
@@ -45,6 +50,7 @@ function mapQuestionToForm(question: QuestionDetail): QuestionFormValues {
     type: question.type,
     difficulty: question.difficulty ?? undefined,
     statementText: extractText(question.statementJson),
+    statementHtml: extractHtml(question.statementJson),
     statementImageAssetId: extractImageAssetId(question.statementJson),
     options,
     correctOptionIndex: undefined,
@@ -52,6 +58,7 @@ function mapQuestionToForm(question: QuestionDetail): QuestionFormValues {
     correctBoolean: undefined,
     correctText: "",
     explanationText: extractText(question.explanationJson),
+    explanationHtml: extractHtml(question.explanationJson),
     explanationImageAssetId: extractImageAssetId(question.explanationJson),
     isPublished: question.isPublished,
   };
@@ -120,16 +127,19 @@ function buildOptions(values: QuestionFormValues, type: QuestionType) {
     return undefined;
   }
 
+  const hasAny = values.options.some((option) =>
+    Boolean(option.text?.trim() || option.html?.trim() || option.imageAssetId)
+  );
+  if (!hasAny) {
+    return undefined;
+  }
+
   const options = values.options.map((option) => {
-    const content = buildContent(option.text, option.imageAssetId);
+    const content = buildContent(option.text, option.imageAssetId, option.html);
     return content ?? { text: "" };
   });
 
-  const hasAny = options.some(
-    (option) => Boolean(option.text || option.imageAssetId || option.assetId)
-  );
-
-  return hasAny ? { options } : undefined;
+  return { options };
 }
 
 export function QuestionEditor({
@@ -177,7 +187,7 @@ export function QuestionEditor({
   } = useSubjects();
 
   const defaultOptions = React.useMemo(
-    () => OPTION_LABELS.map(() => ({ text: "", imageAssetId: "" })),
+    () => OPTION_LABELS.map(() => ({ text: "", html: "", imageAssetId: "" })),
     []
   );
 
@@ -189,6 +199,7 @@ export function QuestionEditor({
       type: "SINGLE_CHOICE",
       difficulty: "MEDIUM",
       statementText: "",
+      statementHtml: "",
       statementImageAssetId: "",
       options: defaultOptions,
       correctOptionIndex: undefined,
@@ -196,6 +207,7 @@ export function QuestionEditor({
       correctBoolean: undefined,
       correctText: "",
       explanationText: "",
+      explanationHtml: "",
       explanationImageAssetId: "",
       isPublished: false,
     },
@@ -265,10 +277,15 @@ export function QuestionEditor({
   }, []);
 
   const handleSubmit = async (values: QuestionFormValues, forcePublish = false) => {
-    const statement = buildContent(values.statementText, values.statementImageAssetId);
+    const statement = buildContent(
+      values.statementText,
+      values.statementImageAssetId,
+      values.statementHtml
+    );
     const explanation = buildContent(
       values.explanationText,
-      values.explanationImageAssetId
+      values.explanationImageAssetId,
+      values.explanationHtml
     );
 
     const payload = {
@@ -276,7 +293,12 @@ export function QuestionEditor({
       topicId: values.topicId || undefined,
       type: values.type,
       difficulty: values.difficulty || undefined,
-      statementJson: statement ?? { text: values.statementText },
+      statementJson:
+        statement ?? {
+          text: values.statementText,
+          html: values.statementHtml,
+          format: "RICH_TEXT_V1" as const,
+        },
       optionsJson: buildOptions(values, values.type),
       explanationJson: explanation || undefined,
       correctAnswerJson: buildCorrectAnswer(values),
@@ -359,11 +381,19 @@ export function QuestionEditor({
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
-            <FormTextarea
+            <RichTextEditor
               label="Statement"
-              placeholder="Enter the question statement"
+              description="Use toolbar to format text, add tables, and insert equations."
               error={form.formState.errors.statementText?.message}
-              {...form.register("statementText")}
+              value={form.watch("statementHtml") || ""}
+              placeholder="Enter the question statement"
+              onChange={(html, text) => {
+                form.setValue("statementHtml", html, { shouldDirty: true });
+                form.setValue("statementText", text, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+              }}
             />
             <FormField
               label="Statement Image"
@@ -427,21 +457,34 @@ export function QuestionEditor({
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Options</h3>
                 <p className="text-xs text-muted-foreground">
-                  Provide up to four options with optional images.
+                  Provide up to four options with rich text, equations, tables, and optional images.
                 </p>
               </div>
               <div className="space-y-4">
                 {OPTION_LABELS.map((label, index) => {
                   const imageField = `options.${index}.imageAssetId` as const;
                   const textField = `options.${index}.text` as const;
+                  const htmlField = `options.${index}.html` as const;
                   const optionImageAssetId = form.watch(imageField);
                   return (
-                    <FormField key={label} label={`Option ${label}`}>
-                      <div className="space-y-3">
-                        <Input
-                          placeholder={`Option ${label} text`}
-                          {...form.register(textField)}
-                        />
+                    <div
+                      key={label}
+                      className="rounded-2xl border border-border bg-card/70 p-3"
+                    >
+                      <RichTextEditor
+                        label={`Option ${label}`}
+                        compact
+                        value={form.watch(htmlField) || ""}
+                        placeholder={`Option ${label} text`}
+                        onChange={(html, text) => {
+                          form.setValue(htmlField, html, { shouldDirty: true });
+                          form.setValue(textField, text, { shouldDirty: true });
+                        }}
+                      />
+                      <FormField
+                        label={`Option ${label} Image`}
+                        description="Optional image for this option."
+                      >
                         <FileUpload
                           purpose="OPTION_IMAGE"
                           accept="image/*"
@@ -521,8 +564,8 @@ export function QuestionEditor({
                             </Button>
                           </div>
                         ) : null}
-                      </div>
-                    </FormField>
+                      </FormField>
+                    </div>
                   );
                 })}
               </div>
@@ -596,11 +639,16 @@ export function QuestionEditor({
               </FormSelect>
             )}
 
-            <FormTextarea
+            <RichTextEditor
               label="Explanation"
-              placeholder="Optional explanation"
+              description="Optional explanation shown after answer submission."
               error={form.formState.errors.explanationText?.message}
-              {...form.register("explanationText")}
+              value={form.watch("explanationHtml") || ""}
+              placeholder="Optional explanation"
+              onChange={(html, text) => {
+                form.setValue("explanationHtml", html, { shouldDirty: true });
+                form.setValue("explanationText", text, { shouldDirty: true });
+              }}
             />
             <FormField
               label="Explanation Image"

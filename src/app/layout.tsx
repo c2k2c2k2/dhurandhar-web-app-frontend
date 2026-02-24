@@ -6,8 +6,12 @@ import {
 } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { I18nProvider } from "@/modules/i18n";
+import { LegacyMarathiInputModeSwitch } from "@/modules/shared/components/LegacyMarathiInputModeSwitch";
 import "./globals.css";
 import "react-image-crop/dist/ReactCrop.css";
+import "katex/dist/katex.min.css";
+import "mathlive/fonts.css";
+import "mathlive/static.css";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -62,7 +66,10 @@ export default function RootLayout({
         className={`${inter.variable} ${poppins.variable} ${notoSansDevanagari.variable} min-h-screen bg-background text-foreground font-sans antialiased`}
       >
         <I18nProvider>
-          <ThemeProvider>{children}</ThemeProvider>
+          <ThemeProvider>
+            {children}
+            <LegacyMarathiInputModeSwitch />
+          </ThemeProvider>
         </I18nProvider>
       </body>
     </html>

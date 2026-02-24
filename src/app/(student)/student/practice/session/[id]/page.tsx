@@ -16,7 +16,8 @@ import {
   useSubmitPracticeAnswer,
 } from "@/modules/student-practice/hooks";
 import { trackStudentEvent } from "@/modules/student-analytics/events";
-import { extractText } from "@/modules/questions/utils";
+import { extractHtml, extractText } from "@/modules/questions/utils";
+import { RichTextRenderer } from "@/modules/questions/components/RichTextRenderer";
 
 const BATCH_SIZE = 5;
 
@@ -244,10 +245,15 @@ export default function StudentPracticeSessionPage() {
           {isSubmitted ? (
             <div className="rounded-3xl border border-border bg-card/90 p-5 shadow-sm">
               <p className="text-sm font-semibold">Explanation</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {extractText(currentQuestion.explanationJson) ||
-                  "Review the concept and move on to the next question."}
-              </p>
+              <div className="mt-2 text-sm text-muted-foreground">
+                <RichTextRenderer
+                  html={extractHtml(currentQuestion.explanationJson)}
+                  fallbackText={
+                    extractText(currentQuestion.explanationJson) ||
+                    "Review the concept and move on to the next question."
+                  }
+                />
+              </div>
               <div className="mt-4 flex flex-wrap gap-3">
                 <Button variant="secondary" onClick={handleNext}>
                   Next question

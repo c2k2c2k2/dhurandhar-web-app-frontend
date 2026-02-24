@@ -70,6 +70,18 @@ html {
   scroll-behavior: smooth;
 }
 
+@font-face {
+  font-family: "Shree Dev 0708";
+  src: url("/fonts/S0708892-nohint.woff") format("woff"),
+    url("/fonts/S0708892-nohint.ttf") format("truetype"),
+    url("/fonts/S0708892-webfix.woff") format("woff"),
+    url("/fonts/S0708892-webfix.ttf") format("truetype"),
+    url("/fonts/S0708892.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -82,6 +94,21 @@ html {
 
 .font-display {
   font-family: var(--font-display), var(--font-sans), "Noto Sans Devanagari",
+    system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.font-legacy-marathi {
+  font-family: "Shree Dev 0708", var(--font-devanagari), var(--font-sans),
+    system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+html[data-legacy-marathi-inputs="true"] :is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+    textarea,
+    [contenteditable="true"],
+    .question-rich-content
+  ) {
+  font-family: "Shree Dev 0708", var(--font-devanagari), var(--font-sans),
     system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
@@ -100,4 +127,107 @@ html {
   .animate-fade-up {
     animation: fade-up 0.8s ease both;
   }
+}
+
+.prose-inherit {
+  color: inherit;
+}
+
+.question-rich-content p {
+  margin: 0 0 0.65rem;
+}
+
+.question-rich-content p:last-child {
+  margin-bottom: 0;
+}
+
+.question-rich-content ul,
+.question-rich-content ol {
+  margin: 0 0 0.65rem;
+  padding-left: 1.1rem;
+}
+
+.question-rich-content li {
+  margin-bottom: 0.25rem;
+}
+
+.question-rich-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.65rem 0;
+}
+
+.question-rich-content table th,
+.question-rich-content table td {
+  border: 1px solid rgb(var(--border));
+  padding: 0.5rem 0.6rem;
+  vertical-align: top;
+}
+
+.question-rich-content table th {
+  background: rgb(var(--muted));
+  font-weight: 600;
+}
+
+.question-rich-content blockquote {
+  border-left: 3px solid rgb(var(--border));
+  margin: 0.65rem 0;
+  padding-left: 0.75rem;
+}
+
+.question-rich-content pre {
+  background: rgb(var(--muted));
+  border: 1px solid rgb(var(--border));
+  border-radius: 12px;
+  overflow-x: auto;
+  padding: 0.6rem;
+}
+
+.question-rich-content code {
+  background: rgb(var(--muted));
+  border-radius: 6px;
+  padding: 0.1rem 0.3rem;
+}
+
+.question-rich-content .is-editor-empty:first-child::before {
+  color: rgb(var(--muted-foreground));
+  content: attr(data-placeholder);
+  float: left;
+  pointer-events: none;
+  height: 0;
+}
+
+.question-math-field {
+  display: block;
+  min-height: 56px;
+  width: 100%;
+  border: 1px solid rgb(var(--input));
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: rgb(var(--background));
+}
+
+.question-math-field:focus-within {
+  outline: 2px solid rgb(var(--ring));
+  outline-offset: 1px;
+}
+
+.question-math-rendered {
+  border: 1px solid rgb(var(--border));
+  border-radius: 10px;
+  background: rgb(var(--muted));
+  padding: 2px 6px;
+}
+
+.question-math-rendered-inline {
+  display: inline-flex;
+  margin: 0 2px;
+  vertical-align: middle;
+}
+
+.question-math-rendered-block {
+  display: block;
+  margin: 6px 0;
+  padding: 8px 10px;
+  text-align: center;
 }

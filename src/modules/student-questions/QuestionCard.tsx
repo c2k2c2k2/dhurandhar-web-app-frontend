@@ -6,61 +6,15 @@ import {
   Circle,
   CheckSquare2,
   Square,
-  Image as ImageIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { getAssetUrl } from "@/lib/api/assets";
 import { useI18n } from "@/modules/i18n";
-import {
-  extractImageAssetId,
-  extractText,
-  normalizeOptions,
-} from "@/modules/questions/utils";
-import type { QuestionContentBlock, QuestionItem } from "@/modules/questions/types";
+import { normalizeOptions } from "@/modules/questions/utils";
+import { QuestionRichContent, RichTextRenderer } from "@/modules/questions/components/RichTextRenderer";
+import type { QuestionItem } from "@/modules/questions/types";
 import type { AnswerValue } from "@/modules/student-questions/types";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-
-function resolveAssetUrl(assetId?: string) {
-  if (!assetId) return undefined;
-  if (API_BASE_URL) return `${API_BASE_URL}/assets/${assetId}`;
-  return `/assets/${assetId}`;
-}
-
-function QuestionContent({
-  content,
-  language,
-}: {
-  content?: QuestionContentBlock | string | null;
-  language: string;
-}) {
-  if (!content) return null;
-  const text = extractText(content, language);
-  const imageAssetId = extractImageAssetId(content);
-  const imageUrl = resolveAssetUrl(imageAssetId);
-
-  return (
-    <div className="space-y-3">
-      {text ? <p className="text-sm leading-relaxed">{text}</p> : null}
-      {imageUrl ? (
-        <div className="overflow-hidden rounded-2xl border border-border bg-muted/40">
-          <img
-            src={imageUrl}
-            alt="Question media"
-            className="w-full object-contain"
-            loading="lazy"
-          />
-        </div>
-      ) : null}
-      {!text && !imageUrl ? (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <ImageIcon className="h-4 w-4" />
-          Media attached
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 function OptionRow({
   label,
@@ -71,7 +25,7 @@ function OptionRow({
   onClick,
 }: {
   label: string;
-  option: { text: string; imageAssetId?: string };
+  option: { text: string; html?: string; imageAssetId?: string };
   selected: boolean;
   multi: boolean;
   disabled?: boolean;
@@ -85,7 +39,7 @@ function OptionRow({
       ? CheckCircle2
       : Circle;
   const Icon = icon;
-  const imageUrl = resolveAssetUrl(option.imageAssetId);
+  const imageUrl = option.imageAssetId ? getAssetUrl(option.imageAssetId) : "";
 
   return (
     <button
@@ -105,9 +59,11 @@ function OptionRow({
         <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
           {label}
         </div>
-        {option.text ? (
-          <p className="mt-1 text-sm text-foreground">{option.text}</p>
-        ) : null}
+        <RichTextRenderer
+          html={option.html}
+          fallbackText={option.text}
+          className="mt-1 text-sm text-foreground"
+        />
         {imageUrl ? (
           <div className="mt-2 overflow-hidden rounded-xl border border-border bg-muted/40">
             <img
@@ -147,8 +103,16 @@ export function QuestionCard({
   let options = rawOptions.filter((option) => option.text || option.imageAssetId);
   if (question.type === "TRUE_FALSE" && options.length === 0) {
     options = [
-      { text: t("student.question.true", "True"), imageAssetId: undefined },
-      { text: t("student.question.false", "False"), imageAssetId: undefined },
+      {
+        text: t("student.question.true", "True"),
+        html: undefined,
+        imageAssetId: undefined,
+      },
+      {
+        text: t("student.question.false", "False"),
+        html: undefined,
+        imageAssetId: undefined,
+      },
     ];
   }
 
@@ -210,7 +174,7 @@ export function QuestionCard({
         </div>
       ) : null}
 
-      <QuestionContent content={question.statementJson} language={language} />
+      <QuestionRichContent content={question.statementJson} language={language} />
 
       {isChoice && options.length > 0 ? (
         <div className="space-y-3">
