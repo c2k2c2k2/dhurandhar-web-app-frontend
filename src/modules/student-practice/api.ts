@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api/client";
 import type {
+  PracticeAnswerResponse,
   PracticeAnswerPayload,
   PracticeProgress,
   PracticeQuestionResponse,
@@ -37,14 +38,14 @@ export async function getNextQuestions(sessionId: string, limit?: number) {
 }
 
 export async function submitAnswer(sessionId: string, payload: PracticeAnswerPayload) {
-  return apiFetch<{ success: boolean }>(`/practice/${sessionId}/answer`, {
+  return apiFetch<PracticeAnswerResponse>(`/practice/${sessionId}/answer`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
 export async function revealExplanation(sessionId: string, payload: PracticeAnswerPayload) {
-  return apiFetch<{ success: boolean }>(`/practice/${sessionId}/reveal`, {
+  return apiFetch<PracticeAnswerResponse>(`/practice/${sessionId}/reveal`, {
     method: "POST",
     body: JSON.stringify(payload),
   });

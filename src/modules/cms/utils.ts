@@ -116,6 +116,8 @@ export function formatDate(value?: string | null) {
 export function badgeClass(active: boolean) {
   return cn(
     "rounded-full px-2 py-1 text-xs font-medium",
-    active ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+    active
+      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200"
+      : "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200"
   );
 }

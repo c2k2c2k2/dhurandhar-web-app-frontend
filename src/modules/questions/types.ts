@@ -16,6 +16,11 @@ export type QuestionContentBlock = {
   assetId?: string;
   format?: "RICH_TEXT_V1";
   blocks?: QuestionContentBlock[];
+  translations?: Partial<Record<"en" | "mr", QuestionContentBlock | string>>;
+  languageMode?: "ENGLISH" | "MARATHI" | "BILINGUAL";
+  primaryLanguage?: "en" | "mr";
+  en?: QuestionContentBlock | string;
+  mr?: QuestionContentBlock | string;
 };
 
 export type QuestionOptions =
@@ -31,6 +36,7 @@ export type QuestionItem = {
   id: string;
   subjectId: string;
   topicId?: string | null;
+  topicName?: string | null;
   type: QuestionType;
   difficulty?: QuestionDifficulty | null;
   statementJson: QuestionContentBlock | string;

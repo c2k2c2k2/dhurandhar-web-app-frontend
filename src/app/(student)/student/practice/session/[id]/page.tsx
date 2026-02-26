@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { AlertTriangle, ChevronRight, Flag, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuestionCard } from "@/modules/student-questions/QuestionCard";
+import { QuestionLanguageSwitcher } from "@/modules/student-questions/QuestionLanguageSwitcher";
 import type { AnswerState, AnswerValue } from "@/modules/student-questions/types";
 import type { QuestionItem } from "@/modules/questions/types";
 import { getNextQuestions } from "@/modules/student-practice/api";
@@ -16,8 +17,9 @@ import {
   useSubmitPracticeAnswer,
 } from "@/modules/student-practice/hooks";
 import { trackStudentEvent } from "@/modules/student-analytics/events";
-import { extractHtml, extractText } from "@/modules/questions/utils";
-import { RichTextRenderer } from "@/modules/questions/components/RichTextRenderer";
+import { extractText } from "@/modules/questions/utils";
+import { QuestionRichContent } from "@/modules/questions/components/RichTextRenderer";
+import { useQuestionLanguage } from "@/modules/student-questions/QuestionLanguageProvider";
 
 const BATCH_SIZE = 5;
 
@@ -30,6 +32,9 @@ export default function StudentPracticeSessionPage() {
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const [answers, setAnswers] = React.useState<AnswerState>({});
   const [submitted, setSubmitted] = React.useState<Record<string, boolean>>({});
+  const [reviews, setReviews] = React.useState<
+    Record<string, { isCorrect?: boolean | null; correctAnswerJson?: unknown }>
+  >({});
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [showSummary, setShowSummary] = React.useState(false);
@@ -38,6 +43,7 @@ export default function StudentPracticeSessionPage() {
   const endPractice = useEndPractice();
   const { data: progress } = usePracticeProgress();
   const { data: weakQuestions } = usePracticeWeakQuestions(4);
+  const { mode: questionLanguageMode } = useQuestionLanguage();
 
   const loadBatch = React.useCallback(async () => {
     if (!sessionId) return;
@@ -65,6 +71,7 @@ export default function StudentPracticeSessionPage() {
   const currentQuestion = queue[currentIndex];
   const currentAnswer = currentQuestion ? answers[currentQuestion.id] : undefined;
   const isSubmitted = currentQuestion ? submitted[currentQuestion.id] : false;
+  const currentReview = currentQuestion ? reviews[currentQuestion.id] : undefined;
 
   const handleAnswerChange = (value: AnswerValue) => {
     if (!currentQuestion) return;
@@ -80,11 +87,23 @@ export default function StudentPracticeSessionPage() {
 
     setError(null);
     try {
-      await submitAnswer.mutateAsync({
+      const response = await submitAnswer.mutateAsync({
         sessionId,
         payload: { questionId: currentQuestion.id, answerJson: currentAnswer },
       });
       setSubmitted((prev) => ({ ...prev, [currentQuestion.id]: true }));
+      const result = response.results?.find(
+        (item) => item.questionId === currentQuestion.id
+      );
+      if (result) {
+        setReviews((prev) => ({
+          ...prev,
+          [currentQuestion.id]: {
+            isCorrect: result.isCorrect,
+            correctAnswerJson: result.correctAnswerJson,
+          },
+        }));
+      }
       trackStudentEvent("practice_answer", {
         sessionId,
         questionId: currentQuestion.id,
@@ -211,10 +230,13 @@ export default function StudentPracticeSessionPage() {
               Answer, review explanation, and move to the next question.
             </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleFinish}>
-            <Flag className="h-4 w-4" />
-            Finish session
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <QuestionLanguageSwitcher />
+            <Button variant="ghost" size="sm" onClick={handleFinish}>
+              <Flag className="h-4 w-4" />
+              Finish session
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -235,24 +257,56 @@ export default function StudentPracticeSessionPage() {
 
       {currentQuestion ? (
         <div className="space-y-4">
+          <div className="rounded-2xl border border-border bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p>
+                Question {currentIndex + 1} of {queue.length} in this set
+              </p>
+              <p>
+                Attempted:{" "}
+                {
+                  queue.filter((item) =>
+                    Boolean(submitted[item.id] || answers[item.id])
+                  ).length
+                }
+              </p>
+            </div>
+          </div>
+
           <QuestionCard
             question={currentQuestion}
             answer={currentAnswer}
             onAnswerChange={handleAnswerChange}
             disabled={isSubmitted}
+            review={currentReview}
           />
 
           {isSubmitted ? (
             <div className="rounded-3xl border border-border bg-card/90 p-5 shadow-sm">
+              <div
+                className={`mb-3 rounded-2xl border px-3 py-2 text-sm ${
+                  currentReview?.isCorrect === true
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                    : currentReview?.isCorrect === false
+                      ? "border-destructive/30 bg-destructive/10 text-destructive"
+                      : "border-border bg-muted/40 text-muted-foreground"
+                }`}
+              >
+                {currentReview?.isCorrect === true
+                  ? "Correct answer. Great job."
+                  : currentReview?.isCorrect === false
+                    ? "Incorrect answer. Review the explanation before moving on."
+                    : "Answer submitted. Review the explanation before moving on."}
+              </div>
               <p className="text-sm font-semibold">Explanation</p>
               <div className="mt-2 text-sm text-muted-foreground">
-                <RichTextRenderer
-                  html={extractHtml(currentQuestion.explanationJson)}
-                  fallbackText={
-                    extractText(currentQuestion.explanationJson) ||
-                    "Review the concept and move on to the next question."
-                  }
+                <QuestionRichContent
+                  content={currentQuestion.explanationJson}
+                  language={questionLanguageMode}
                 />
+                {!extractText(currentQuestion.explanationJson, questionLanguageMode).trim() ? (
+                  <p>Review the concept and move on to the next question.</p>
+                ) : null}
               </div>
               <div className="mt-4 flex flex-wrap gap-3">
                 <Button variant="secondary" onClick={handleNext}>

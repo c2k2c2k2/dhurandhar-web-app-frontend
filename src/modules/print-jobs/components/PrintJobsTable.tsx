@@ -32,15 +32,15 @@ function formatLabel(value?: string | null) {
 function statusStyles(status: PrintJobItem["status"]) {
   switch (status) {
     case "DONE":
-      return "bg-emerald-50 text-emerald-700";
+      return "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200";
     case "FAILED":
-      return "bg-rose-50 text-rose-700";
+      return "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200";
     case "CANCELLED":
-      return "bg-slate-100 text-slate-700";
+      return "bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-200";
     case "RUNNING":
-      return "bg-sky-50 text-sky-700";
+      return "bg-sky-50 text-sky-700 dark:bg-sky-500/20 dark:text-sky-200";
     default:
-      return "bg-amber-50 text-amber-700";
+      return "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200";
   }
 }
 

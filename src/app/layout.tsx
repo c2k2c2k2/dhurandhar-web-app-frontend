@@ -6,7 +6,6 @@ import {
 } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { I18nProvider } from "@/modules/i18n";
-import { LegacyMarathiInputModeSwitch } from "@/modules/shared/components/LegacyMarathiInputModeSwitch";
 import "./globals.css";
 import "react-image-crop/dist/ReactCrop.css";
 import "katex/dist/katex.min.css";
@@ -68,7 +67,6 @@ export default function RootLayout({
         <I18nProvider>
           <ThemeProvider>
             {children}
-            <LegacyMarathiInputModeSwitch />
           </ThemeProvider>
         </I18nProvider>
       </body>

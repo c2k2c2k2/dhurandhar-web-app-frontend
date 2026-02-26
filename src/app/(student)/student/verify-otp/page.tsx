@@ -118,7 +118,7 @@ function VerifyOtpForm() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-b from-[#f7f4ef] via-white to-[#eef4ff] px-4 py-12">
+    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-b from-[rgb(var(--background))] via-[rgb(var(--background))] to-[rgb(var(--muted))] px-4 py-12">
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-1/2 top-[-120px] h-[360px] w-[360px] -translate-x-1/2 rounded-full bg-primary/10 blur-[120px]" />
         <div className="absolute right-[-80px] top-[120px] h-[280px] w-[280px] rounded-full bg-accent/10 blur-[120px]" />

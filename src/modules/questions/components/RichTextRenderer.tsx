@@ -12,6 +12,7 @@ import {
   extractText,
   MATH_BLOCK_ATTR,
   MATH_INLINE_ATTR,
+  resolveLocalizedContentStrict,
 } from "../utils";
 
 function normalizeLatex(value: string): string {
@@ -115,34 +116,84 @@ export function QuestionRichContent({
   imageClassName?: string;
 }) {
   const resolvedLanguage = language || "en";
-  const text = extractText(content, resolvedLanguage);
-  const html = extractHtml(content, resolvedLanguage);
-  const imageAssetId = extractImageAssetId(content);
-  const imageUrl = imageAssetId ? getAssetUrl(imageAssetId) : "";
 
-  if (!text && !html && !imageUrl) {
-    return null;
+  const renderContentBlock = (
+    block: unknown,
+    blockLanguage: "en" | "mr",
+    label?: string
+  ) => {
+    const text = extractText(block, blockLanguage);
+    const html = extractHtml(block, blockLanguage);
+    const imageAssetId = extractImageAssetId(block, blockLanguage);
+    const imageUrl = imageAssetId ? getAssetUrl(imageAssetId) : "";
+
+    if (!text && !html && !imageUrl) {
+      return null;
+    }
+
+    const contentClassName = blockLanguage === "mr" ? "font-marathi-unicode" : undefined;
+
+    return (
+      <div className="space-y-2">
+        {label ? (
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            {label}
+          </p>
+        ) : null}
+        <RichTextRenderer html={html} fallbackText={text} className={contentClassName} />
+        {imageUrl ? (
+          <div
+            className={cn(
+              "overflow-hidden rounded-2xl border border-border bg-muted/30 p-2",
+              imageClassName
+            )}
+          >
+            <img
+              src={imageUrl}
+              alt="Question media"
+              className="question-media mx-auto h-auto w-auto max-w-full object-contain"
+              loading="lazy"
+            />
+          </div>
+        ) : null}
+        {!text && !html && imageUrl ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <ImageIcon className="h-4 w-4" />
+            Media attached
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  if (resolvedLanguage === "both") {
+    const english = resolveLocalizedContentStrict(content, "en");
+    const marathi = resolveLocalizedContentStrict(content, "mr");
+
+    if (!english && !marathi) {
+      const fallback = renderContentBlock(content, "en");
+      return fallback ? <div className={cn("space-y-3", className)}>{fallback}</div> : null;
+    }
+
+    const englishBlock = english ? renderContentBlock(english, "en", "English") : null;
+    const marathiBlock = marathi ? renderContentBlock(marathi, "mr", "Marathi") : null;
+
+    if (!englishBlock && !marathiBlock) {
+      return null;
+    }
+
+    return (
+      <div className={cn("space-y-4", className)}>
+        {englishBlock}
+        {marathiBlock}
+      </div>
+    );
   }
 
-  return (
-    <div className={cn("space-y-3", className)}>
-      <RichTextRenderer html={html} fallbackText={text} />
-      {imageUrl ? (
-        <div className={cn("overflow-hidden rounded-2xl border border-border bg-muted/40", imageClassName)}>
-          <img
-            src={imageUrl}
-            alt="Question media"
-            className="w-full object-contain"
-            loading="lazy"
-          />
-        </div>
-      ) : null}
-      {!text && !html && imageUrl ? (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <ImageIcon className="h-4 w-4" />
-          Media attached
-        </div>
-      ) : null}
-    </div>
-  );
+  const languageCode = resolvedLanguage === "mr" ? "mr" : "en";
+  const block = renderContentBlock(content, languageCode);
+  if (!block) {
+    return null;
+  }
+  return <div className={cn("space-y-3", className)}>{block}</div>;
 }

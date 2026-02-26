@@ -34,7 +34,12 @@ function getSubjectName(subjectId: string, subjects: Subject[]) {
   return subject?.name || subject?.title || "Unknown";
 }
 
-function getTopicName(topicId: string | null | undefined, topics: Topic[]) {
+function getTopicName(
+  topicId: string | null | undefined,
+  topicName: string | null | undefined,
+  topics: Topic[]
+) {
+  if (topicName?.trim()) return topicName;
   if (!topicId) return "-";
   const topic = topics.find((item) => item.id === topicId);
   return topic?.name || topic?.title || topicId;
@@ -90,7 +95,7 @@ export function QuestionsTable({
       {
         key: "topicId",
         header: "Topic",
-        render: (question) => getTopicName(question.topicId, topics),
+        render: (question) => getTopicName(question.topicId, question.topicName, topics),
       },
       {
         key: "difficulty",
@@ -105,8 +110,8 @@ export function QuestionsTable({
             className={cn(
               "rounded-full px-2 py-1 text-xs font-medium",
               question.isPublished
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-amber-50 text-amber-700"
+                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200"
+                : "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200"
             )}
           >
             {question.isPublished ? "Published" : "Draft"}

@@ -35,6 +35,18 @@ export type PracticeAnswerPayload = {
   isCorrect?: boolean;
 };
 
+export type PracticeAnswerResult = {
+  questionId: string;
+  eventType: "SERVED" | "ANSWERED" | "REVEALED";
+  isCorrect: boolean | null;
+  correctAnswerJson?: unknown | null;
+};
+
+export type PracticeAnswerResponse = {
+  success: boolean;
+  results?: PracticeAnswerResult[];
+};
+
 export type PracticeProgressSubject = {
   subjectId: string;
   totalAnswered: number;

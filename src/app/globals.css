@@ -97,17 +97,22 @@ html {
     system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
+.font-marathi-unicode {
+  font-family: var(--font-devanagari), var(--font-sans), "Shree Dev 0708",
+    system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
 .font-legacy-marathi {
   font-family: "Shree Dev 0708", var(--font-devanagari), var(--font-sans),
     system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
-html[data-legacy-marathi-inputs="true"] :is(
-    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
-    textarea,
-    [contenteditable="true"],
-    .question-rich-content
-  ) {
+.question-rich-content .font-legacy-marathi {
+  font-size: 1.18em;
+  line-height: 1.75;
+}
+
+.question-rich-content [data-question-legacy="true"] {
   font-family: "Shree Dev 0708", var(--font-devanagari), var(--font-sans),
     system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
@@ -155,6 +160,8 @@ html[data-legacy-marathi-inputs="true"] :is(
   width: 100%;
   border-collapse: collapse;
   margin: 0.65rem 0;
+  display: block;
+  overflow-x: auto;
 }
 
 .question-rich-content table th,
@@ -167,6 +174,11 @@ html[data-legacy-marathi-inputs="true"] :is(
 .question-rich-content table th {
   background: rgb(var(--muted));
   font-weight: 600;
+}
+
+.question-rich-content img {
+  max-width: 100%;
+  height: auto;
 }
 
 .question-rich-content blockquote {
@@ -230,4 +242,12 @@ html[data-legacy-marathi-inputs="true"] :is(
   margin: 6px 0;
   padding: 8px 10px;
   text-align: center;
+}
+
+.question-media {
+  max-height: clamp(180px, 36vh, 320px);
+}
+
+.question-option-media {
+  max-height: clamp(140px, 28vh, 220px);
 }

@@ -122,7 +122,7 @@ const quickActions = [
     description: "Timed mocks + subject tests",
     href: "/student/tests",
     icon: ClipboardList,
-    tone: "bg-brand-gold/30 text-amber-700",
+    tone: "bg-brand-gold/30 text-amber-700 dark:text-amber-200",
   },
   {
     title: "Subjects",
@@ -135,12 +135,12 @@ const quickActions = [
 
 function bannerTone(tone?: string) {
   if (tone === "accent") {
-    return "bg-gradient-to-br from-accent/20 via-white to-white border-accent/30";
+    return "bg-gradient-to-br from-accent/20 via-card/90 to-card border-accent/30";
   }
   if (tone === "primary") {
-    return "bg-gradient-to-br from-primary/15 via-white to-white border-primary/30";
+    return "bg-gradient-to-br from-primary/15 via-card/90 to-card border-primary/30";
   }
-  return "bg-gradient-to-br from-muted via-white to-white";
+  return "bg-gradient-to-br from-muted/80 via-card/90 to-card";
 }
 
 export default function StudentHomePage() {
@@ -152,7 +152,7 @@ export default function StudentHomePage() {
   return (
     <div className="space-y-10">
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-3xl border border-border bg-white/80 p-6 shadow-sm">
+        <div className="rounded-3xl border border-border bg-card/90 p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">

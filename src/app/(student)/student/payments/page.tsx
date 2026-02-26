@@ -81,7 +81,7 @@ function PaymentsContent() {
         planId,
         merchantTransactionId: order.merchantTransactionId,
       });
-      window.location.href = order.redirectUrl;
+      window.location.assign(order.redirectUrl);
     } catch (err) {
       const message =
         err && typeof err === "object" && "message" in err
@@ -167,7 +167,7 @@ function PaymentsContent() {
               key={plan.id}
               className={
                 highlight
-                  ? "rounded-3xl border border-accent bg-white p-6 shadow-lg"
+                  ? "rounded-3xl border border-accent bg-card p-6 shadow-lg"
                   : "rounded-3xl border border-border bg-card/90 p-6 shadow-sm"
               }
             >

@@ -37,10 +37,10 @@ function formatDate(value?: string | null) {
 function statusBadge(status?: string | null) {
   const normalized = status || "UNKNOWN";
   const classes: Record<string, string> = {
-    DRAFT: "bg-slate-100 text-slate-600",
-    SCHEDULED: "bg-amber-50 text-amber-700",
-    SENT: "bg-emerald-50 text-emerald-700",
-    CANCELLED: "bg-rose-50 text-rose-700",
+    DRAFT: "bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-200",
+    SCHEDULED: "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
+    SENT: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+    CANCELLED: "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
   };
   return (
     <span

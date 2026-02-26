@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, type Path } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -21,13 +21,13 @@ import { FileUpload } from "@/modules/shared/FileUpload";
 import { useSubjects } from "@/modules/taxonomy/subjects/hooks";
 import { useTopics } from "@/modules/taxonomy/topics/hooks";
 import type { Topic } from "@/modules/taxonomy/topics/types";
-import type { QuestionDetail, QuestionType } from "../types";
+import type { QuestionContentBlock, QuestionDetail, QuestionType } from "../types";
 import { QuestionFormSchema, type QuestionFormValues } from "../schemas";
 import {
   buildContent,
-  extractHtml,
-  extractImageAssetId,
+  extractLocalizedContentBlock,
   extractText,
+  hasLanguageVariant,
   normalizeOptions,
 } from "../utils";
 import { getAssetUrl } from "@/lib/api/assets";
@@ -35,13 +35,188 @@ import { useCreateQuestion, useQuestion, useUpdateQuestion } from "../hooks";
 import { RichTextEditor } from "./RichTextEditor";
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
+const LANGUAGE_MODES = [
+  {
+    value: "ENGLISH" as const,
+    label: "English only",
+    description: "Store only English content",
+  },
+  {
+    value: "MARATHI" as const,
+    label: "Marathi only",
+    description: "Store only Marathi content",
+  },
+  {
+    value: "BILINGUAL" as const,
+    label: "English + Marathi",
+    description: "Store both languages",
+  },
+];
+
+type LocalizedContentInput = {
+  text?: string;
+  html?: string;
+  imageAssetId?: string;
+};
+
+type QuestionLanguageMode = QuestionFormValues["languageMode"];
+type LocalizedFieldBase = "statementEn" | "statementMr" | "explanationEn" | "explanationMr";
+type LocalizedOptionsBase = "optionsEn" | "optionsMr";
 
 function getTopicName(topic: Topic) {
   return topic.name || topic.title || "Untitled";
 }
 
+function createEmptyContent(): LocalizedContentInput {
+  return { text: "", html: "", imageAssetId: "" };
+}
+
+function createEmptyOptions() {
+  return OPTION_LABELS.map(() => createEmptyContent());
+}
+
+function detectLanguageMode(question: QuestionDetail): QuestionLanguageMode {
+  const hasLegacyMarathiMarker = (value: unknown): boolean => {
+    if (!value) return false;
+    if (typeof value === "string") {
+      return /(font-legacy-marathi|data-question-legacy|shree dev|s0708892|shreelipi)/i.test(
+        value
+      );
+    }
+    if (Array.isArray(value)) {
+      return value.some((entry) => hasLegacyMarathiMarker(entry));
+    }
+    if (typeof value !== "object") {
+      return false;
+    }
+
+    return Object.values(value as Record<string, unknown>).some((entry) =>
+      hasLegacyMarathiMarker(entry)
+    );
+  };
+
+  const mergeLanguageModes = (
+    current: QuestionLanguageMode | undefined,
+    next: QuestionLanguageMode | undefined
+  ): QuestionLanguageMode | undefined => {
+    if (!next) return current;
+    if (!current || current === next) return next;
+    return "BILINGUAL";
+  };
+
+  const detectExplicitMode = (value: unknown): QuestionLanguageMode | undefined => {
+    if (!value) return undefined;
+
+    if (Array.isArray(value)) {
+      return value.reduce<QuestionLanguageMode | undefined>(
+        (mode, item) => mergeLanguageModes(mode, detectExplicitMode(item)),
+        undefined
+      );
+    }
+
+    if (typeof value !== "object") return undefined;
+    const obj = value as Record<string, unknown>;
+
+    if (obj.languageMode === "ENGLISH" || obj.languageMode === "MARATHI" || obj.languageMode === "BILINGUAL") {
+      return obj.languageMode;
+    }
+
+    if (obj.primaryLanguage === "mr") return "MARATHI";
+    if (obj.primaryLanguage === "en") return "ENGLISH";
+
+    const translations =
+      obj.translations && typeof obj.translations === "object"
+        ? (obj.translations as Record<string, unknown>)
+        : null;
+    if (translations) {
+      const hasEn = Boolean(translations.en);
+      const hasMr = Boolean(translations.mr);
+      if (hasEn && hasMr) return "BILINGUAL";
+      if (hasMr) return "MARATHI";
+      if (hasEn) return "ENGLISH";
+    }
+
+    if (Array.isArray(obj.options)) {
+      return detectExplicitMode(obj.options);
+    }
+
+    return Object.values(obj).reduce<QuestionLanguageMode | undefined>(
+      (mode, entry) => mergeLanguageModes(mode, detectExplicitMode(entry)),
+      undefined
+    );
+  };
+
+  const values = [question.statementJson, question.optionsJson, question.explanationJson];
+  const explicit = values.reduce<QuestionLanguageMode | undefined>(
+    (mode, value) => mergeLanguageModes(mode, detectExplicitMode(value)),
+    undefined
+  );
+  if (explicit) {
+    return explicit;
+  }
+
+  const hasEnglish = values.some((value) => hasLanguageVariant(value, "en"));
+  const hasMarathi = values.some((value) => hasLanguageVariant(value, "mr"));
+  const hasLegacyMarathi = values.some((value) => hasLegacyMarathiMarker(value));
+
+  if (hasLegacyMarathi && !hasMarathi) {
+    return "MARATHI";
+  }
+
+  if (hasEnglish && hasMarathi) return "BILINGUAL";
+  if (hasMarathi) return "MARATHI";
+
+  // Legacy data may not carry translation wrappers. Detect Devanagari-heavy content.
+  const combinedText = values.map((value) => extractText(value, "en")).join(" ").trim();
+  if (combinedText) {
+    const devanagariChars = (combinedText.match(/[\u0900-\u097F]/g) || []).length;
+    const latinChars = (combinedText.match(/[A-Za-z]/g) || []).length;
+    if (devanagariChars > 0 && devanagariChars >= Math.max(4, Math.floor(latinChars * 0.6))) {
+      return "MARATHI";
+    }
+  }
+
+  return "ENGLISH";
+}
+
 function mapQuestionToForm(question: QuestionDetail): QuestionFormValues {
-  const options = normalizeOptions(question.optionsJson);
+  const mode = detectLanguageMode(question);
+  const optionsEn =
+    mode === "BILINGUAL"
+      ? normalizeOptions(question.optionsJson, "en", false)
+      : mode === "ENGLISH"
+        ? normalizeOptions(question.optionsJson, "en", true)
+        : normalizeOptions(undefined, "en", true);
+  const optionsMr =
+    mode === "BILINGUAL"
+      ? normalizeOptions(question.optionsJson, "mr", false)
+      : mode === "MARATHI"
+        ? normalizeOptions(question.optionsJson, "mr", true)
+        : normalizeOptions(undefined, "mr", true);
+  const statementEn =
+    mode === "BILINGUAL"
+      ? extractLocalizedContentBlock(question.statementJson, "en", false)
+      : mode === "ENGLISH"
+        ? extractLocalizedContentBlock(question.statementJson, "en", true)
+        : { text: "", html: "", imageAssetId: undefined };
+  const statementMr =
+    mode === "BILINGUAL"
+      ? extractLocalizedContentBlock(question.statementJson, "mr", false)
+      : mode === "MARATHI"
+        ? extractLocalizedContentBlock(question.statementJson, "mr", true)
+        : { text: "", html: "", imageAssetId: undefined };
+  const explanationEn =
+    mode === "BILINGUAL"
+      ? extractLocalizedContentBlock(question.explanationJson, "en", false)
+      : mode === "ENGLISH"
+        ? extractLocalizedContentBlock(question.explanationJson, "en", true)
+        : { text: "", html: "", imageAssetId: undefined };
+  const explanationMr =
+    mode === "BILINGUAL"
+      ? extractLocalizedContentBlock(question.explanationJson, "mr", false)
+      : mode === "MARATHI"
+        ? extractLocalizedContentBlock(question.explanationJson, "mr", true)
+        : { text: "", html: "", imageAssetId: undefined };
   const correctAnswer = question.correctAnswerJson;
 
   const values: QuestionFormValues = {
@@ -49,17 +224,41 @@ function mapQuestionToForm(question: QuestionDetail): QuestionFormValues {
     topicId: question.topicId ?? "",
     type: question.type,
     difficulty: question.difficulty ?? undefined,
-    statementText: extractText(question.statementJson),
-    statementHtml: extractHtml(question.statementJson),
-    statementImageAssetId: extractImageAssetId(question.statementJson),
-    options,
+    languageMode: mode,
+    statementEn: {
+      text: statementEn.text,
+      html: statementEn.html,
+      imageAssetId: statementEn.imageAssetId || "",
+    },
+    statementMr: {
+      text: statementMr.text,
+      html: statementMr.html,
+      imageAssetId: statementMr.imageAssetId || "",
+    },
+    optionsEn: optionsEn.map((option) => ({
+      text: option.text,
+      html: option.html || "",
+      imageAssetId: option.imageAssetId || "",
+    })),
+    optionsMr: optionsMr.map((option) => ({
+      text: option.text,
+      html: option.html || "",
+      imageAssetId: option.imageAssetId || "",
+    })),
     correctOptionIndex: undefined,
     correctOptionIndexes: [],
     correctBoolean: undefined,
     correctText: "",
-    explanationText: extractText(question.explanationJson),
-    explanationHtml: extractHtml(question.explanationJson),
-    explanationImageAssetId: extractImageAssetId(question.explanationJson),
+    explanationEn: {
+      text: explanationEn.text,
+      html: explanationEn.html,
+      imageAssetId: explanationEn.imageAssetId || "",
+    },
+    explanationMr: {
+      text: explanationMr.text,
+      html: explanationMr.html,
+      imageAssetId: explanationMr.imageAssetId || "",
+    },
     isPublished: question.isPublished,
   };
 
@@ -67,10 +266,7 @@ function mapQuestionToForm(question: QuestionDetail): QuestionFormValues {
     if ("optionIndex" in correctAnswer && typeof correctAnswer.optionIndex === "number") {
       values.correctOptionIndex = correctAnswer.optionIndex;
     }
-    if (
-      "optionIndexes" in correctAnswer &&
-      Array.isArray(correctAnswer.optionIndexes)
-    ) {
+    if ("optionIndexes" in correctAnswer && Array.isArray(correctAnswer.optionIndexes)) {
       values.correctOptionIndexes = correctAnswer.optionIndexes.filter(
         (index): index is number => typeof index === "number"
       );
@@ -100,7 +296,7 @@ function buildCorrectAnswer(values: QuestionFormValues) {
         ? { optionIndex: values.correctOptionIndex }
         : undefined;
     case "MULTI_CHOICE":
-      return values.correctOptionIndexes && values.correctOptionIndexes.length
+      return values.correctOptionIndexes?.length
         ? { optionIndexes: values.correctOptionIndexes }
         : undefined;
     case "TRUE_FALSE":
@@ -122,24 +318,96 @@ function buildCorrectAnswer(values: QuestionFormValues) {
   }
 }
 
-function buildOptions(values: QuestionFormValues, type: QuestionType) {
+function buildLocalizedContent(
+  mode: QuestionLanguageMode,
+  english: LocalizedContentInput,
+  marathi: LocalizedContentInput
+): Record<string, unknown> | QuestionContentBlock | undefined {
+  const englishContent = buildContent(english.text, english.imageAssetId, english.html);
+  const marathiContent = buildContent(marathi.text, marathi.imageAssetId, marathi.html);
+
+  if (mode === "ENGLISH") {
+    if (!englishContent) return undefined;
+    return {
+      ...englishContent,
+      languageMode: "ENGLISH",
+      primaryLanguage: "en",
+    };
+  }
+  if (mode === "MARATHI") {
+    if (!marathiContent) return undefined;
+    return {
+      ...marathiContent,
+      languageMode: "MARATHI",
+      primaryLanguage: "mr",
+    };
+  }
+
+  const translations: Record<string, unknown> = {};
+  if (englishContent) translations.en = englishContent;
+  if (marathiContent) translations.mr = marathiContent;
+  if (!Object.keys(translations).length) return undefined;
+  return {
+    translations,
+    languageMode: "BILINGUAL",
+    primaryLanguage: "en",
+  };
+}
+
+function buildOptions(
+  values: QuestionFormValues,
+  type: QuestionType
+) {
   if (type === "INTEGER" || type === "SHORT_ANSWER") {
     return undefined;
   }
 
-  const hasAny = values.options.some((option) =>
-    Boolean(option.text?.trim() || option.html?.trim() || option.imageAssetId)
+  const englishOptions = values.optionsEn.map((option) =>
+    buildContent(option.text, option.imageAssetId, option.html)
   );
+  const marathiOptions = values.optionsMr.map((option) =>
+    buildContent(option.text, option.imageAssetId, option.html)
+  );
+
+  let options: Array<Record<string, unknown> | QuestionContentBlock> = [];
+
+  if (values.languageMode === "ENGLISH") {
+    options = englishOptions.map((option) => option ?? { text: "" });
+  } else if (values.languageMode === "MARATHI") {
+    options = marathiOptions.map((option) => option ?? { text: "" });
+  } else {
+    options = OPTION_LABELS.map((_, index) => {
+      const translations: Record<string, unknown> = {};
+      if (englishOptions[index]) translations.en = englishOptions[index];
+      if (marathiOptions[index]) translations.mr = marathiOptions[index];
+      if (Object.keys(translations).length) {
+        return { translations };
+      }
+      return { text: "" };
+    });
+  }
+
+  const hasAny = options.some((option) => {
+    if (!option || typeof option !== "object") return false;
+    const typed = option as Record<string, unknown>;
+    if (typed.translations && typeof typed.translations === "object") {
+      return Object.values(typed.translations).some((entry) => Boolean(entry));
+    }
+    return Boolean(
+      (typeof typed.text === "string" && typed.text.trim()) ||
+        (typeof typed.html === "string" && typed.html.trim()) ||
+        (typeof typed.imageAssetId === "string" && typed.imageAssetId.trim())
+    );
+  });
   if (!hasAny) {
     return undefined;
   }
 
-  const options = values.options.map((option) => {
-    const content = buildContent(option.text, option.imageAssetId, option.html);
-    return content ?? { text: "" };
-  });
-
-  return { options };
+  return {
+    options,
+    languageMode: values.languageMode,
+    primaryLanguage: values.languageMode === "MARATHI" ? "mr" : "en",
+  };
 }
 
 export function QuestionEditor({
@@ -156,20 +424,8 @@ export function QuestionEditor({
   const { user } = useAuth();
   const canPublish = hasPermission(user, "questions.publish");
   const isEdit = Boolean(questionId);
-  const [statementPreviewUrl, setStatementPreviewUrl] = React.useState<string | null>(null);
-  const [explanationPreviewUrl, setExplanationPreviewUrl] = React.useState<string | null>(null);
-  const [optionPreviewUrls, setOptionPreviewUrls] = React.useState<(string | null)[]>(
-    () => OPTION_LABELS.map(() => null)
-  );
-  const previewUrlsRef = React.useRef<{
-    statement: string | null;
-    explanation: string | null;
-    options: (string | null)[];
-  }>({
-    statement: null,
-    explanation: null,
-    options: OPTION_LABELS.map(() => null),
-  });
+
+  const [previewUrls, setPreviewUrls] = React.useState<Record<string, string | null>>({});
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [previewTitle, setPreviewTitle] = React.useState("Preview");
   const [previewSrc, setPreviewSrc] = React.useState<string | null>(null);
@@ -186,11 +442,6 @@ export function QuestionEditor({
     error: subjectsError,
   } = useSubjects();
 
-  const defaultOptions = React.useMemo(
-    () => OPTION_LABELS.map(() => ({ text: "", html: "", imageAssetId: "" })),
-    []
-  );
-
   const form = useForm<QuestionFormValues>({
     resolver: zodResolver(QuestionFormSchema),
     defaultValues: {
@@ -198,17 +449,17 @@ export function QuestionEditor({
       topicId: initialTopicId ?? "",
       type: "SINGLE_CHOICE",
       difficulty: "MEDIUM",
-      statementText: "",
-      statementHtml: "",
-      statementImageAssetId: "",
-      options: defaultOptions,
+      languageMode: "ENGLISH",
+      statementEn: createEmptyContent(),
+      statementMr: createEmptyContent(),
+      optionsEn: createEmptyOptions(),
+      optionsMr: createEmptyOptions(),
       correctOptionIndex: undefined,
       correctOptionIndexes: [],
       correctBoolean: undefined,
       correctText: "",
-      explanationText: "",
-      explanationHtml: "",
-      explanationImageAssetId: "",
+      explanationEn: createEmptyContent(),
+      explanationMr: createEmptyContent(),
       isPublished: false,
     },
   });
@@ -219,8 +470,18 @@ export function QuestionEditor({
   const createQuestion = useCreateQuestion();
   const updateQuestion = useUpdateQuestion();
 
+  const setPreviewUrl = React.useCallback((key: string, url: string | null) => {
+    setPreviewUrls((prev) => {
+      const existing = prev[key];
+      if (existing && existing.startsWith("blob:") && existing !== url) {
+        URL.revokeObjectURL(existing);
+      }
+      return { ...prev, [key]: url };
+    });
+  }, []);
+
   React.useEffect(() => {
-    if (!isEdit && subjects && subjects.length && !form.getValues("subjectId")) {
+    if (!isEdit && subjects?.length && !form.getValues("subjectId")) {
       form.setValue("subjectId", initialSubjectId ?? subjects[0].id);
     }
   }, [subjects, form, isEdit, initialSubjectId]);
@@ -228,81 +489,139 @@ export function QuestionEditor({
   React.useEffect(() => {
     if (isEdit && question) {
       form.reset(mapQuestionToForm(question));
-      setStatementPreviewUrl((prev) => {
-        if (prev && prev.startsWith("blob:")) {
-          URL.revokeObjectURL(prev);
-        }
-        return null;
-      });
-      setExplanationPreviewUrl((prev) => {
-        if (prev && prev.startsWith("blob:")) {
-          URL.revokeObjectURL(prev);
-        }
-        return null;
-      });
-      setOptionPreviewUrls((prev) => {
-        prev.forEach((url) => {
+      setPreviewUrls((prev) => {
+        Object.values(prev).forEach((url) => {
           if (url && url.startsWith("blob:")) {
             URL.revokeObjectURL(url);
           }
         });
-        return OPTION_LABELS.map(() => null);
+        return {};
       });
     }
   }, [isEdit, question, form]);
 
   React.useEffect(() => {
-    previewUrlsRef.current = {
-      statement: statementPreviewUrl,
-      explanation: explanationPreviewUrl,
-      options: optionPreviewUrls,
-    };
-  }, [statementPreviewUrl, explanationPreviewUrl, optionPreviewUrls]);
-
-  React.useEffect(() => {
     return () => {
-      const current = previewUrlsRef.current;
-      if (current.statement && current.statement.startsWith("blob:")) {
-        URL.revokeObjectURL(current.statement);
-      }
-      if (current.explanation && current.explanation.startsWith("blob:")) {
-        URL.revokeObjectURL(current.explanation);
-      }
-      current.options.forEach((url) => {
+      Object.values(previewUrls).forEach((url) => {
         if (url && url.startsWith("blob:")) {
           URL.revokeObjectURL(url);
         }
       });
     };
-  }, []);
+  }, [previewUrls]);
+
+  const getPreviewSrc = React.useCallback(
+    (previewKey: string, imageAssetId?: string) =>
+      previewUrls[previewKey] || (imageAssetId ? getAssetUrl(imageAssetId) : ""),
+    [previewUrls]
+  );
+
+  const setLocalizedFieldValue = React.useCallback(
+    (
+      base: LocalizedFieldBase,
+      key: "text" | "html" | "imageAssetId",
+      value: string,
+      shouldValidate = false
+    ) => {
+      form.setValue(`${base}.${key}` as Path<QuestionFormValues>, value, {
+        shouldDirty: true,
+        shouldValidate,
+      });
+    },
+    [form]
+  );
+
+  const setOptionFieldValue = React.useCallback(
+    (
+      base: LocalizedOptionsBase,
+      index: number,
+      key: "text" | "html" | "imageAssetId",
+      value: string
+    ) => {
+      form.setValue(`${base}.${index}.${key}` as Path<QuestionFormValues>, value, {
+        shouldDirty: true,
+      });
+    },
+    [form]
+  );
 
   const handleSubmit = async (values: QuestionFormValues, forcePublish = false) => {
-    const statement = buildContent(
-      values.statementText,
-      values.statementImageAssetId,
-      values.statementHtml
-    );
-    const explanation = buildContent(
-      values.explanationText,
-      values.explanationImageAssetId,
-      values.explanationHtml
-    );
+    const sharedStatementImageAssetId =
+      values.statementEn.imageAssetId || values.statementMr.imageAssetId || "";
+    const sharedExplanationImageAssetId =
+      values.explanationEn.imageAssetId || values.explanationMr.imageAssetId || "";
+    const sharedOptionImageAssetIds = OPTION_LABELS.map((_, index) => {
+      return values.optionsEn[index]?.imageAssetId || values.optionsMr[index]?.imageAssetId || "";
+    });
+
+    const normalizedValues: QuestionFormValues = {
+      ...values,
+      statementEn: {
+        ...values.statementEn,
+        imageAssetId: sharedStatementImageAssetId,
+      },
+      statementMr: {
+        ...values.statementMr,
+        imageAssetId: sharedStatementImageAssetId,
+      },
+      explanationEn: {
+        ...values.explanationEn,
+        imageAssetId: sharedExplanationImageAssetId,
+      },
+      explanationMr: {
+        ...values.explanationMr,
+        imageAssetId: sharedExplanationImageAssetId,
+      },
+      optionsEn: values.optionsEn.map((option, index) => ({
+        ...option,
+        imageAssetId: sharedOptionImageAssetIds[index],
+      })),
+      optionsMr: values.optionsMr.map((option, index) => ({
+        ...option,
+        imageAssetId: sharedOptionImageAssetIds[index],
+      })),
+    };
+
+    const statementJson =
+      buildLocalizedContent(
+        normalizedValues.languageMode,
+        normalizedValues.statementEn,
+        normalizedValues.statementMr
+      ) ??
+      buildContent(
+        normalizedValues.statementEn.text,
+        normalizedValues.statementEn.imageAssetId,
+        normalizedValues.statementEn.html
+      ) ??
+      buildContent(
+        normalizedValues.statementMr.text,
+        normalizedValues.statementMr.imageAssetId,
+        normalizedValues.statementMr.html
+      );
+
+    if (!statementJson) {
+      toast({
+        title: "Save failed",
+        description: "Question statement is required.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const payload = {
-      subjectId: values.subjectId,
-      topicId: values.topicId || undefined,
-      type: values.type,
-      difficulty: values.difficulty || undefined,
-      statementJson:
-        statement ?? {
-          text: values.statementText,
-          html: values.statementHtml,
-          format: "RICH_TEXT_V1" as const,
-        },
-      optionsJson: buildOptions(values, values.type),
-      explanationJson: explanation || undefined,
-      correctAnswerJson: buildCorrectAnswer(values),
-      isPublished: forcePublish ? true : values.isPublished ?? false,
+      subjectId: normalizedValues.subjectId,
+      topicId: normalizedValues.topicId || undefined,
+      type: normalizedValues.type,
+      difficulty: normalizedValues.difficulty || undefined,
+      statementJson,
+      optionsJson: buildOptions(normalizedValues, normalizedValues.type),
+      explanationJson: buildLocalizedContent(
+        normalizedValues.languageMode,
+        normalizedValues.explanationEn,
+        normalizedValues.explanationMr
+      ),
+      correctAnswerJson: buildCorrectAnswer(normalizedValues),
+      isPublished: forcePublish ? true : normalizedValues.isPublished ?? false,
     };
 
     try {
@@ -349,21 +668,59 @@ export function QuestionEditor({
   const subjectOptions = subjects || [];
   const topicOptions = topics || [];
   const currentType = form.watch("type");
+  const languageMode = form.watch("languageMode");
+  const showEnglish = languageMode !== "MARATHI";
+  const showMarathi = languageMode !== "ENGLISH";
   const correctOptionIndex = form.watch("correctOptionIndex");
   const correctOptionIndexes = form.watch("correctOptionIndexes") || [];
-  const statementImageAssetId = form.watch("statementImageAssetId");
-  const explanationImageAssetId = form.watch("explanationImageAssetId");
-  const statementPreviewSrc =
-    statementPreviewUrl ||
-    (statementImageAssetId ? getAssetUrl(statementImageAssetId) : "");
-  const explanationPreviewSrc =
-    explanationPreviewUrl ||
-    (explanationImageAssetId ? getAssetUrl(explanationImageAssetId) : "");
+
+  const languagesToRender = [
+    {
+      key: "en" as const,
+      label: "English",
+      statementBase: "statementEn" as const,
+      optionsBase: "optionsEn" as const,
+      explanationBase: "explanationEn" as const,
+      visible: showEnglish,
+      statementError: form.formState.errors.statementEn?.text?.message,
+      optionsError: form.formState.errors.optionsEn?.message,
+    },
+    {
+      key: "mr" as const,
+      label: "Marathi",
+      statementBase: "statementMr" as const,
+      optionsBase: "optionsMr" as const,
+      explanationBase: "explanationMr" as const,
+      visible: showMarathi,
+      statementError: form.formState.errors.statementMr?.text?.message,
+      optionsError: form.formState.errors.optionsMr?.message,
+    },
+  ].filter((item) => item.visible);
 
   const openPreview = (src: string, title: string) => {
     setPreviewSrc(src);
     setPreviewTitle(title);
     setPreviewOpen(true);
+  };
+
+  const statementImageAssetId =
+    form.watch("statementEn.imageAssetId") || form.watch("statementMr.imageAssetId") || "";
+  const explanationImageAssetId =
+    form.watch("explanationEn.imageAssetId") || form.watch("explanationMr.imageAssetId") || "";
+
+  const setSharedStatementImage = (imageAssetId: string) => {
+    setLocalizedFieldValue("statementEn", "imageAssetId", imageAssetId);
+    setLocalizedFieldValue("statementMr", "imageAssetId", imageAssetId);
+  };
+
+  const setSharedExplanationImage = (imageAssetId: string) => {
+    setLocalizedFieldValue("explanationEn", "imageAssetId", imageAssetId);
+    setLocalizedFieldValue("explanationMr", "imageAssetId", imageAssetId);
+  };
+
+  const setSharedOptionImage = (index: number, imageAssetId: string) => {
+    setOptionFieldValue("optionsEn", index, "imageAssetId", imageAssetId);
+    setOptionFieldValue("optionsMr", index, "imageAssetId", imageAssetId);
   };
 
   return (
@@ -381,195 +738,288 @@ export function QuestionEditor({
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
-            <RichTextEditor
-              label="Statement"
-              description="Use toolbar to format text, add tables, and insert equations."
-              error={form.formState.errors.statementText?.message}
-              value={form.watch("statementHtml") || ""}
-              placeholder="Enter the question statement"
-              onChange={(html, text) => {
-                form.setValue("statementHtml", html, { shouldDirty: true });
-                form.setValue("statementText", text, {
-                  shouldDirty: true,
-                  shouldValidate: true,
-                });
-              }}
-            />
+            {languagesToRender.map((languageSection) => {
+              const statement = form.watch(languageSection.statementBase);
+              const explanation = form.watch(languageSection.explanationBase);
+
+              return (
+                <div key={languageSection.key} className="space-y-6 rounded-2xl border border-border bg-card/40 p-4">
+                  <div className="flex items-center justify-between border-b border-border pb-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                        Question Content
+                      </p>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        {languageSection.label}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <RichTextEditor
+                    label={`Statement (${languageSection.label})`}
+                    description="Use toolbar to format text, add tables, and insert equations."
+                    error={languageSection.statementError}
+                    value={statement?.html || ""}
+                    language={languageSection.key}
+                    placeholder={`Enter statement in ${languageSection.label}`}
+                    onChange={(html, text) => {
+                      setLocalizedFieldValue(languageSection.statementBase, "html", html, true);
+                      setLocalizedFieldValue(languageSection.statementBase, "text", text, true);
+                    }}
+                  />
+
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-semibold text-foreground">
+                        Options ({languageSection.label})
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Add option text, equations, tables, and optional images.
+                      </p>
+                      {languageSection.optionsError ? (
+                        <p className="mt-1 text-xs text-destructive">
+                          {languageSection.optionsError}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-4">
+                      {OPTION_LABELS.map((label, index) => {
+                        const option = form.watch(
+                          `${languageSection.optionsBase}.${index}` as Path<QuestionFormValues>
+                        ) as LocalizedContentInput;
+
+                        return (
+                          <div
+                            key={`${languageSection.key}-${label}`}
+                            className="rounded-2xl border border-border bg-card/70 p-3"
+                          >
+                            <RichTextEditor
+                              label={`Option ${label} (${languageSection.label})`}
+                              compact
+                              value={option?.html || ""}
+                              language={languageSection.key}
+                              placeholder={`Option ${label} in ${languageSection.label}`}
+                              onChange={(html, text) => {
+                                setOptionFieldValue(languageSection.optionsBase, index, "html", html);
+                                setOptionFieldValue(languageSection.optionsBase, index, "text", text);
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <RichTextEditor
+                    label={`Explanation (${languageSection.label})`}
+                    description="Optional explanation shown after answer submission."
+                    value={explanation?.html || ""}
+                    language={languageSection.key}
+                    placeholder={`Optional explanation in ${languageSection.label}`}
+                    onChange={(html, text) => {
+                      setLocalizedFieldValue(languageSection.explanationBase, "html", html);
+                      setLocalizedFieldValue(languageSection.explanationBase, "text", text);
+                    }}
+                  />
+                </div>
+              );
+            })}
+
             <FormField
-              label="Statement Image"
-              description="Optional image for the statement."
+              label="Statement Image (Shared)"
+              description="Upload once. The same statement image is used for English and Marathi."
             >
               <FileUpload
                 purpose="QUESTION_IMAGE"
                 accept="image/*"
                 onComplete={(file) => {
-                  form.setValue("statementImageAssetId", file.fileAssetId);
-                  setStatementPreviewUrl((prev) => {
-                    if (prev && prev.startsWith("blob:")) {
-                      URL.revokeObjectURL(prev);
-                    }
-                    return file.previewUrl ?? null;
-                  });
+                  setSharedStatementImage(file.fileAssetId);
+                  setPreviewUrl("statement-shared-image", file.previewUrl ?? null);
                 }}
               />
-              {statementPreviewSrc ? (
+              {getPreviewSrc("statement-shared-image", statementImageAssetId) ? (
                 <div className="mt-3 space-y-2">
                   <button
                     type="button"
                     className="w-full"
-                    onClick={() => openPreview(statementPreviewSrc, "Statement Image")}
+                    onClick={() =>
+                      openPreview(
+                        getPreviewSrc("statement-shared-image", statementImageAssetId),
+                        "Statement Image"
+                      )
+                    }
                   >
                     <img
-                      src={statementPreviewSrc}
+                      src={getPreviewSrc("statement-shared-image", statementImageAssetId)}
                       alt="Statement"
-                      className="max-h-40 w-full rounded-2xl border border-border object-contain"
+                      className="max-h-48 w-full rounded-2xl border border-border object-contain"
                     />
                   </button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      form.setValue("statementImageAssetId", "");
-                      setStatementPreviewUrl((prev) => {
-                        if (prev && prev.startsWith("blob:")) {
-                          URL.revokeObjectURL(prev);
-                        }
-                        return null;
-                      });
-                    }}
-                  >
-                    Remove image
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => openPreview(statementPreviewSrc, "Statement Image")}
-                  >
-                    View larger
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSharedStatementImage("");
+                        setPreviewUrl("statement-shared-image", null);
+                      }}
+                    >
+                      Remove image
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() =>
+                        openPreview(
+                          getPreviewSrc("statement-shared-image", statementImageAssetId),
+                          "Statement Image"
+                        )
+                      }
+                    >
+                      View larger
+                    </Button>
+                  </div>
                 </div>
               ) : null}
             </FormField>
 
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Options</h3>
-                <p className="text-xs text-muted-foreground">
-                  Provide up to four options with rich text, equations, tables, and optional images.
-                </p>
-              </div>
-              <div className="space-y-4">
-                {OPTION_LABELS.map((label, index) => {
-                  const imageField = `options.${index}.imageAssetId` as const;
-                  const textField = `options.${index}.text` as const;
-                  const htmlField = `options.${index}.html` as const;
-                  const optionImageAssetId = form.watch(imageField);
-                  return (
-                    <div
-                      key={label}
-                      className="rounded-2xl border border-border bg-card/70 p-3"
-                    >
-                      <RichTextEditor
-                        label={`Option ${label}`}
-                        compact
-                        value={form.watch(htmlField) || ""}
-                        placeholder={`Option ${label} text`}
-                        onChange={(html, text) => {
-                          form.setValue(htmlField, html, { shouldDirty: true });
-                          form.setValue(textField, text, { shouldDirty: true });
-                        }}
-                      />
+            {currentType === "SINGLE_CHOICE" ||
+            currentType === "MULTI_CHOICE" ||
+            currentType === "TRUE_FALSE" ? (
+              <div className="space-y-4 rounded-2xl border border-border bg-card/40 p-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground">Option Images (Shared)</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Upload each option image once. The same image is reused in both languages.
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {OPTION_LABELS.map((label, index) => {
+                    const previewKey = `option-shared-${index}-image`;
+                    const optionImageAssetId =
+                      form.watch(`optionsEn.${index}.imageAssetId`) ||
+                      form.watch(`optionsMr.${index}.imageAssetId`) ||
+                      "";
+                    const previewSrc = getPreviewSrc(previewKey, optionImageAssetId);
+
+                    return (
                       <FormField
+                        key={`option-shared-image-${label}`}
                         label={`Option ${label} Image`}
-                        description="Optional image for this option."
+                        description="Shared across English and Marathi."
                       >
                         <FileUpload
                           purpose="OPTION_IMAGE"
                           accept="image/*"
                           onComplete={(file) => {
-                            form.setValue(imageField, file.fileAssetId);
-                            setOptionPreviewUrls((prev) => {
-                              const next = [...prev];
-                              const existing = next[index];
-                              if (existing && existing.startsWith("blob:")) {
-                                URL.revokeObjectURL(existing);
-                              }
-                              next[index] = file.previewUrl ?? null;
-                              return next;
-                            });
+                            setSharedOptionImage(index, file.fileAssetId);
+                            setPreviewUrl(previewKey, file.previewUrl ?? null);
                           }}
                         />
-                        {optionPreviewUrls[index] || optionImageAssetId ? (
+                        {previewSrc ? (
                           <div className="mt-2 space-y-2">
                             <button
                               type="button"
                               className="w-full"
-                              onClick={() =>
-                                openPreview(
-                                  optionPreviewUrls[index] ||
-                                    (optionImageAssetId
-                                      ? getAssetUrl(optionImageAssetId)
-                                      : ""),
-                                  `Option ${label} Image`
-                                )
-                              }
+                              onClick={() => openPreview(previewSrc, `Option ${label} Image`)}
                             >
                               <img
-                                src={
-                                  optionPreviewUrls[index] ||
-                                  (optionImageAssetId
-                                    ? getAssetUrl(optionImageAssetId)
-                                    : "")
-                                }
+                                src={previewSrc}
                                 alt={`Option ${label}`}
-                                className="max-h-32 w-full rounded-2xl border border-border object-contain"
+                                className="max-h-40 w-full rounded-2xl border border-border object-contain"
                               />
                             </button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                form.setValue(imageField, "");
-                                setOptionPreviewUrls((prev) => {
-                                  const next = [...prev];
-                                  const existing = next[index];
-                                  if (existing && existing.startsWith("blob:")) {
-                                    URL.revokeObjectURL(existing);
-                                  }
-                                  next[index] = null;
-                                  return next;
-                                });
-                              }}
-                            >
-                              Remove image
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              onClick={() =>
-                                openPreview(
-                                  optionPreviewUrls[index] ||
-                                    (optionImageAssetId
-                                      ? getAssetUrl(optionImageAssetId)
-                                      : ""),
-                                  `Option ${label} Image`
-                                )
-                              }
-                            >
-                              View larger
-                            </Button>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSharedOptionImage(index, "");
+                                  setPreviewUrl(previewKey, null);
+                                }}
+                              >
+                                Remove image
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => openPreview(previewSrc, `Option ${label} Image`)}
+                              >
+                                View larger
+                              </Button>
+                            </div>
                           </div>
                         ) : null}
                       </FormField>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ) : null}
+
+            <FormField
+              label="Explanation Image (Shared)"
+              description="Upload once. The same explanation image is used for English and Marathi."
+            >
+              <FileUpload
+                purpose="EXPLANATION_IMAGE"
+                accept="image/*"
+                onComplete={(file) => {
+                  setSharedExplanationImage(file.fileAssetId);
+                  setPreviewUrl("explanation-shared-image", file.previewUrl ?? null);
+                }}
+              />
+              {getPreviewSrc("explanation-shared-image", explanationImageAssetId) ? (
+                <div className="mt-3 space-y-2">
+                  <button
+                    type="button"
+                    className="w-full"
+                    onClick={() =>
+                      openPreview(
+                        getPreviewSrc("explanation-shared-image", explanationImageAssetId),
+                        "Explanation Image"
+                      )
+                    }
+                  >
+                    <img
+                      src={getPreviewSrc("explanation-shared-image", explanationImageAssetId)}
+                      alt="Explanation"
+                      className="max-h-48 w-full rounded-2xl border border-border object-contain"
+                    />
+                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSharedExplanationImage("");
+                        setPreviewUrl("explanation-shared-image", null);
+                      }}
+                    >
+                      Remove image
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() =>
+                        openPreview(
+                          getPreviewSrc("explanation-shared-image", explanationImageAssetId),
+                          "Explanation Image"
+                        )
+                      }
+                    >
+                      View larger
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </FormField>
 
             {currentType === "MULTI_CHOICE" ? (
               <MultiSelectField
@@ -638,81 +1088,32 @@ export function QuestionEditor({
                 ))}
               </FormSelect>
             )}
-
-            <RichTextEditor
-              label="Explanation"
-              description="Optional explanation shown after answer submission."
-              error={form.formState.errors.explanationText?.message}
-              value={form.watch("explanationHtml") || ""}
-              placeholder="Optional explanation"
-              onChange={(html, text) => {
-                form.setValue("explanationHtml", html, { shouldDirty: true });
-                form.setValue("explanationText", text, { shouldDirty: true });
-              }}
-            />
-            <FormField
-              label="Explanation Image"
-              description="Optional image for the explanation."
-            >
-              <FileUpload
-                purpose="EXPLANATION_IMAGE"
-                accept="image/*"
-                onComplete={(file) => {
-                  form.setValue("explanationImageAssetId", file.fileAssetId);
-                  setExplanationPreviewUrl((prev) => {
-                    if (prev && prev.startsWith("blob:")) {
-                      URL.revokeObjectURL(prev);
-                    }
-                    return file.previewUrl ?? null;
-                  });
-                }}
-              />
-              {explanationPreviewSrc ? (
-                <div className="mt-3 space-y-2">
-                  <button
-                    type="button"
-                    className="w-full"
-                    onClick={() =>
-                      openPreview(explanationPreviewSrc, "Explanation Image")
-                    }
-                  >
-                    <img
-                      src={explanationPreviewSrc}
-                      alt="Explanation"
-                      className="max-h-40 w-full rounded-2xl border border-border object-contain"
-                    />
-                  </button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      form.setValue("explanationImageAssetId", "");
-                      setExplanationPreviewUrl((prev) => {
-                        if (prev && prev.startsWith("blob:")) {
-                          URL.revokeObjectURL(prev);
-                        }
-                        return null;
-                      });
-                    }}
-                  >
-                    Remove image
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() =>
-                      openPreview(explanationPreviewSrc, "Explanation Image")
-                    }
-                  >
-                    View larger
-                  </Button>
-                </div>
-              ) : null}
-            </FormField>
           </div>
+
           <div className="space-y-6">
+            <FormField
+              label="Question Languages"
+              description="Choose whether admin enters English, Marathi, or both."
+            >
+              <div className="grid gap-2">
+                {LANGUAGE_MODES.map((mode) => (
+                  <button
+                    key={mode.value}
+                    type="button"
+                    onClick={() => form.setValue("languageMode", mode.value)}
+                    className={`rounded-2xl border px-3 py-2 text-left text-sm transition ${
+                      languageMode === mode.value
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-background text-foreground hover:bg-muted/60"
+                    }`}
+                  >
+                    <p className="font-medium">{mode.label}</p>
+                    <p className="text-xs text-muted-foreground">{mode.description}</p>
+                  </button>
+                ))}
+              </div>
+            </FormField>
+
             <FormSelect
               label="Subject"
               value={selectedSubjectId}
@@ -728,6 +1129,7 @@ export function QuestionEditor({
                 </option>
               ))}
             </FormSelect>
+
             <FormSelect
               label="Topic"
               value={form.watch("topicId") || ""}
@@ -741,13 +1143,16 @@ export function QuestionEditor({
                 </option>
               ))}
             </FormSelect>
+
             <FormSelect
               label="Difficulty"
               value={form.watch("difficulty") || ""}
               onChange={(event) =>
                 form.setValue(
                   "difficulty",
-                  event.target.value ? (event.target.value as QuestionFormValues["difficulty"]) : undefined
+                  event.target.value
+                    ? (event.target.value as QuestionFormValues["difficulty"])
+                    : undefined
                 )
               }
             >
@@ -756,6 +1161,7 @@ export function QuestionEditor({
               <option value="MEDIUM">Medium</option>
               <option value="HARD">Hard</option>
             </FormSelect>
+
             <FormSelect
               label="Type"
               value={currentType}
@@ -769,6 +1175,7 @@ export function QuestionEditor({
               <option value="INTEGER">Integer</option>
               <option value="SHORT_ANSWER">Short answer</option>
             </FormSelect>
+
             {canPublish ? (
               <Controller
                 control={form.control}
@@ -813,6 +1220,7 @@ export function QuestionEditor({
           Back to Questions
         </Button>
       </div>
+
       <Modal
         open={previewOpen}
         onOpenChange={setPreviewOpen}

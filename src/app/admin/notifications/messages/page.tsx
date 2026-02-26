@@ -32,9 +32,9 @@ function formatDate(value?: string | null) {
 function statusBadge(status?: string | null) {
   const normalized = status || "UNKNOWN";
   const classes: Record<string, string> = {
-    SENT: "bg-emerald-50 text-emerald-700",
-    FAILED: "bg-rose-50 text-rose-700",
-    PENDING: "bg-amber-50 text-amber-700",
+    SENT: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+    FAILED: "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
+    PENDING: "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
   };
   return (
     <span

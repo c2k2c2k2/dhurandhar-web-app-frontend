@@ -9,8 +9,8 @@ export function StudentBottomNav() {
   const pathname = usePathname() || "";
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur lg:hidden">
-      <div className="grid grid-cols-5 gap-1 px-2 py-2">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur lg:hidden">
+      <div className="grid grid-cols-5 gap-1 px-2 pb-[max(env(safe-area-inset-bottom),0.6rem)] pt-2">
         {STUDENT_PRIMARY_NAV.map((item) => {
           const isHome = item.href === "/student";
           const isActive = isHome

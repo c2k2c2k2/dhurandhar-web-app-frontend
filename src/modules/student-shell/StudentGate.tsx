@@ -6,6 +6,7 @@ import { QueryProvider } from "@/components/query-provider";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { RequireStudent } from "@/lib/auth/guards";
 import { StudentAuthProvider } from "@/modules/student-auth/StudentAuthProvider";
+import { QuestionLanguageProvider } from "@/modules/student-questions/QuestionLanguageProvider";
 import { StudentLayout } from "@/modules/student-shell/StudentLayout";
 import { ToastProvider } from "@/modules/shared/components/Toast";
 
@@ -31,13 +32,15 @@ export function StudentGate({ children }: { children: React.ReactNode }) {
             children
           ) : (
             <StudentAuthProvider>
-              {PUBLIC_ACCESS ? (
-                <StudentLayout>{children}</StudentLayout>
-              ) : (
-                <RequireStudent>
+              <QuestionLanguageProvider>
+                {PUBLIC_ACCESS ? (
                   <StudentLayout>{children}</StudentLayout>
-                </RequireStudent>
-              )}
+                ) : (
+                  <RequireStudent>
+                    <StudentLayout>{children}</StudentLayout>
+                  </RequireStudent>
+                )}
+              </QuestionLanguageProvider>
             </StudentAuthProvider>
           )}
         </ToastProvider>

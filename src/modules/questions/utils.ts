@@ -4,6 +4,8 @@ import type { QuestionContentBlock } from "./types";
 
 export const MATH_INLINE_ATTR = "data-question-math-inline";
 export const MATH_BLOCK_ATTR = "data-question-math-block";
+export type QuestionContentLanguage = "en" | "mr" | "both";
+const CONTENT_LANGUAGES = ["en", "mr"] as const;
 
 const ENTITY_MAP: Record<string, string> = {
   amp: "&",
@@ -13,7 +15,104 @@ const ENTITY_MAP: Record<string, string> = {
   apos: "'",
   nbsp: " ",
 };
-const IGNORED_TEXT_KEYS = new Set(["imageAssetId", "assetId", "format"]);
+const IGNORED_TEXT_KEYS = new Set([
+  "imageAssetId",
+  "assetId",
+  "format",
+  "languageMode",
+  "primaryLanguage",
+  "translations",
+]);
+
+function normalizeLanguage(language: string | undefined): "en" | "mr" {
+  if (language === "mr") return "mr";
+  return "en";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function getTranslations(value: Record<string, unknown>): Record<string, unknown> | null {
+  if (!isRecord(value.translations)) {
+    return null;
+  }
+  return value.translations;
+}
+
+function hasMeaningfulValue(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") return Boolean(value.trim());
+  if (typeof value === "number" || typeof value === "boolean") return true;
+  if (Array.isArray(value)) return value.some((item) => hasMeaningfulValue(item));
+  if (isRecord(value)) {
+    return Object.values(value).some((entry) => hasMeaningfulValue(entry));
+  }
+  return false;
+}
+
+function hasTranslationContainer(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (CONTENT_LANGUAGES.some((key) => key in value)) {
+    return true;
+  }
+  const translations = getTranslations(value);
+  if (!translations) return false;
+  return CONTENT_LANGUAGES.some((key) => key in translations);
+}
+
+function resolveLocalizedValue(
+  value: Record<string, unknown>,
+  language: "en" | "mr",
+  allowFallback = true
+): unknown | undefined {
+  if (value[language] !== undefined) {
+    return value[language];
+  }
+
+  const translations = getTranslations(value);
+  if (translations) {
+    if (translations[language] !== undefined) {
+      return translations[language];
+    }
+    if (!allowFallback) {
+      return undefined;
+    }
+    if (translations.en !== undefined) {
+      return translations.en;
+    }
+    if (translations.mr !== undefined) {
+      return translations.mr;
+    }
+    const first = Object.values(translations).find((entry) => entry !== undefined);
+    if (first !== undefined) {
+      return first;
+    }
+  }
+
+  return undefined;
+}
+
+export function resolveLocalizedContent(
+  value: unknown,
+  language: string | undefined = "en"
+): unknown {
+  if (!isRecord(value) || language === "both") {
+    return value;
+  }
+  const localized = resolveLocalizedValue(value, normalizeLanguage(language));
+  return localized === undefined ? value : localized;
+}
+
+export function resolveLocalizedContentStrict(
+  value: unknown,
+  language: "en" | "mr"
+): unknown | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  return resolveLocalizedValue(value, language, false);
+}
 
 function extractLocalizedString(
   value: Record<string, unknown>,
@@ -165,14 +264,28 @@ export function extractText(value: unknown, language = "en"): string {
     return value.map((item) => extractText(item, language)).join(" ").trim();
   }
   if (typeof value === "object") {
+    if (language === "both" && hasTranslationContainer(value)) {
+      const english = extractText(resolveLocalizedContent(value, "en"), "en");
+      const marathi = extractText(resolveLocalizedContent(value, "mr"), "mr");
+      if (english && marathi && english !== marathi) {
+        return `${english} / ${marathi}`.trim();
+      }
+      return (english || marathi).trim();
+    }
+
+    const localizedContent = resolveLocalizedContent(value, language);
+    if (localizedContent !== value) {
+      return extractText(localizedContent, language);
+    }
+
     const obj = value as Record<string, unknown>;
     if (typeof obj.html === "string") {
       const htmlText = extractTextFromHtml(obj.html);
       if (htmlText) return htmlText;
     }
-    const localized = extractLocalizedString(obj, language);
-    if (localized) {
-      return localized;
+    const localizedString = extractLocalizedString(obj, language);
+    if (localizedString) {
+      return localizedString;
     }
     if (typeof obj.text === "string") {
       return obj.text;
@@ -198,13 +311,22 @@ export function extractHtml(value: unknown, language = "en"): string {
     return value.map((item) => extractHtml(item, language)).join("");
   }
   if (typeof value === "object") {
+    if (language === "both") {
+      return extractHtml(resolveLocalizedContent(value, "en"), "en");
+    }
+
+    const localizedContent = resolveLocalizedContent(value, language);
+    if (localizedContent !== value) {
+      return extractHtml(localizedContent, language);
+    }
+
     const obj = value as Record<string, unknown>;
     if (typeof obj.html === "string" && hasMeaningfulHtml(obj.html)) {
       return obj.html;
     }
-    const localized = extractLocalizedString(obj, language);
-    if (localized) {
-      return convertPlainTextToHtml(localized);
+    const localizedString = extractLocalizedString(obj, language);
+    if (localizedString) {
+      return convertPlainTextToHtml(localizedString);
     }
     if (typeof obj.text === "string") {
       return convertPlainTextToHtml(obj.text);
@@ -216,8 +338,19 @@ export function extractHtml(value: unknown, language = "en"): string {
   return "";
 }
 
-export function extractImageAssetId(value: unknown): string | undefined {
+export function extractImageAssetId(
+  value: unknown,
+  language = "en"
+): string | undefined {
   if (!value || typeof value !== "object") return undefined;
+
+  if (language !== "both") {
+    const localized = resolveLocalizedContent(value, language);
+    if (localized !== value) {
+      return extractImageAssetId(localized, language);
+    }
+  }
+
   const obj = value as Record<string, unknown>;
   const direct =
     (typeof obj.imageAssetId === "string" && obj.imageAssetId) ||
@@ -225,11 +358,56 @@ export function extractImageAssetId(value: unknown): string | undefined {
   if (direct) return direct;
   if (Array.isArray(obj.blocks)) {
     for (const block of obj.blocks) {
-      const candidate = extractImageAssetId(block);
+      const candidate = extractImageAssetId(block, language);
       if (candidate) return candidate;
     }
   }
   return undefined;
+}
+
+export function extractLocalizedContentBlock(
+  value: unknown,
+  language: "en" | "mr",
+  fallback = true
+): {
+  text: string;
+  html: string;
+  imageAssetId?: string;
+} {
+  const localized = fallback
+    ? resolveLocalizedContent(value, language)
+    : resolveLocalizedContentStrict(value, language) ?? {};
+  return {
+    text: extractText(localized, language),
+    html: extractHtml(localized, language),
+    imageAssetId: extractImageAssetId(localized, language),
+  };
+}
+
+export function hasLanguageVariant(
+  value: unknown,
+  language: "en" | "mr"
+): boolean {
+  if (value === null || value === undefined) return false;
+
+  if (!isRecord(value) && !Array.isArray(value)) {
+    return language === "en" && hasMeaningfulValue(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => hasLanguageVariant(item, language));
+  }
+
+  const localized = resolveLocalizedValue(value, language, false);
+  if (localized !== undefined) {
+    return hasMeaningfulValue(localized);
+  }
+
+  if (language === "en") {
+    return hasMeaningfulValue(value);
+  }
+
+  return false;
 }
 
 export function buildContent(
@@ -251,43 +429,19 @@ export function buildContent(
   return content;
 }
 
-export function normalizeOptions(value: unknown, language = "en") {
-  const extractOptionText = (option: unknown): string => {
-    if (option === null || option === undefined) return "";
-    if (
-      typeof option === "string" ||
-      typeof option === "number" ||
-      typeof option === "boolean"
-    ) {
-      return String(option);
+export function normalizeOptions(value: unknown, language = "en", fallback = true) {
+  const extractOptionValue = (option: unknown) => {
+    if (language === "both") {
+      return option;
     }
-    if (Array.isArray(option)) {
-      return option
-        .map((item) => extractOptionText(item))
-        .join(" ")
-        .trim();
+    if (!fallback) {
+      const strict = resolveLocalizedContentStrict(
+        option,
+        normalizeLanguage(language)
+      );
+      return strict ?? {};
     }
-    if (typeof option === "object") {
-      const obj = option as Record<string, unknown>;
-      if (typeof obj.html === "string") {
-        const text = extractTextFromHtml(obj.html);
-        if (text) return text;
-      }
-      const localized = extractLocalizedString(obj, language);
-      if (localized) {
-        return localized;
-      }
-      if (typeof obj.text === "string") {
-        return obj.text;
-      }
-      if (Array.isArray(obj.blocks)) {
-        return obj.blocks
-          .map((item) => extractOptionText(item))
-          .join(" ")
-          .trim();
-      }
-    }
-    return "";
+    return option;
   };
 
   let rawOptions: unknown[] = [];
@@ -301,13 +455,17 @@ export function normalizeOptions(value: unknown, language = "en") {
   }
 
   const mapped = rawOptions.map((option) => ({
-    text: extractOptionText(option),
-    html: extractHtml(option, language) || undefined,
-    imageAssetId: extractImageAssetId(option),
+    text: extractText(extractOptionValue(option), language),
+    html: extractHtml(extractOptionValue(option), language) || undefined,
+    imageAssetId: extractImageAssetId(extractOptionValue(option), language),
   }));
 
   while (mapped.length < 4) {
-    mapped.push({ text: "", html: undefined, imageAssetId: undefined });
+    mapped.push({
+      text: "",
+      html: undefined,
+      imageAssetId: undefined,
+    });
   }
 
   return mapped.slice(0, 4);

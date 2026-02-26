@@ -22,7 +22,7 @@ import {
   type NodeViewProps,
   useEditor,
 } from "@tiptap/react";
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Mark, Node, mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -47,6 +47,7 @@ type RichTextEditorProps = {
   onChange: (html: string, text: string) => void;
   placeholder?: string;
   compact?: boolean;
+  language?: "en" | "mr";
 };
 
 type EquationMode = "inline" | "block";
@@ -65,6 +66,20 @@ const EQUATION_TEMPLATES = [
   { label: "Integral", value: "\\int_{0}^{1} x^2\\,dx" },
   { label: "Matrix", value: "\\begin{bmatrix}a & b\\\\ c & d\\end{bmatrix}" },
 ] as const;
+
+const LEGACY_FONT_HINTS = [
+  "shree",
+  "s0708892",
+  "shreelipi",
+  "dev 0708",
+  "kruti",
+  "chanakya",
+] as const;
+
+function hasLegacyFontHint(value: string): boolean {
+  const normalized = value.toLowerCase();
+  return LEGACY_FONT_HINTS.some((hint) => normalized.includes(hint));
+}
 
 function decodeHtmlEntities(value: string): string {
   if (!value) return "";
@@ -214,6 +229,45 @@ const BlockMath = Node.create({
   },
 });
 
+const LegacyMarathi = Mark.create({
+  name: "legacyMarathi",
+  parseHTML() {
+    return [
+      {
+        style: "font-family",
+        getAttrs: (fontFamily) =>
+          hasLegacyFontHint(String(fontFamily || "")) ? {} : false,
+      },
+      {
+        tag: "span",
+        getAttrs: (element) => {
+          if (!(element instanceof HTMLElement)) {
+            return false;
+          }
+
+          const classes = element.className.toLowerCase();
+          if (classes.split(/\s+/).includes("font-legacy-marathi")) {
+            return {};
+          }
+
+          const dataLegacy = element.getAttribute("data-question-legacy");
+          if (dataLegacy === "true") {
+            return {};
+          }
+
+          const styleValue = `${element.getAttribute("style") || ""} ${element.style.fontFamily || ""}`;
+          const hasLegacyFamily = hasLegacyFontHint(styleValue);
+
+          return hasLegacyFamily ? {} : false;
+        },
+      },
+    ];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["span", mergeAttributes(HTMLAttributes, { class: "font-legacy-marathi" }), 0];
+  },
+});
+
 function normalizeHtmlForCompare(html: string): string {
   return html
     .replace(/<p><\/p>/g, "")
@@ -260,7 +314,10 @@ export function RichTextEditor({
   onChange,
   placeholder,
   compact = false,
+  language = "en",
 }: RichTextEditorProps) {
+  const marathiEditor = language === "mr";
+  const [typingMode, setTypingMode] = React.useState<"unicode" | "legacy">("unicode");
   const [equationMode, setEquationMode] = React.useState<EquationMode>("inline");
   const [equationPanelOpen, setEquationPanelOpen] = React.useState(false);
   const [equationLatex, setEquationLatex] = React.useState("");
@@ -279,6 +336,7 @@ export function RichTextEditor({
       TableRow,
       TableHeader,
       TableCell,
+      LegacyMarathi,
       InlineMath,
       BlockMath,
     ],
@@ -286,8 +344,11 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class: cn(
-          "question-rich-content prose-inherit w-full rounded-b-2xl px-3 py-2 text-sm text-foreground focus:outline-none",
-          compact ? "min-h-[120px]" : "min-h-[190px]"
+          "question-rich-content prose-inherit w-full rounded-b-2xl px-3 py-2 text-foreground focus:outline-none",
+          marathiEditor && "font-marathi-unicode",
+          compact
+            ? "min-h-[130px] text-base leading-7"
+            : "min-h-[210px] text-lg leading-8"
         ),
       },
     },
@@ -305,6 +366,43 @@ export function RichTextEditor({
     if (current === next) return;
     editor.commands.setContent(value || "");
   }, [editor, value]);
+
+  React.useEffect(() => {
+    if (!editor || !marathiEditor) return;
+
+    const syncModeFromSelection = () => {
+      setTypingMode(editor.isActive("legacyMarathi") ? "legacy" : "unicode");
+    };
+
+    syncModeFromSelection();
+    editor.on("selectionUpdate", syncModeFromSelection);
+
+    return () => {
+      editor.off("selectionUpdate", syncModeFromSelection);
+    };
+  }, [editor, marathiEditor]);
+
+  React.useEffect(() => {
+    if (!editor || !marathiEditor) return;
+
+    const legacyMark = editor.schema.marks.legacyMarathi;
+    if (!legacyMark) return;
+    const legacyMarkInstance = legacyMark.create();
+    const { state } = editor;
+    const marks = state.storedMarks ?? state.selection.$from.marks();
+    const hasLegacy = Boolean(legacyMark.isInSet(marks));
+
+    if (typingMode === "legacy") {
+      if (!hasLegacy) {
+        editor.view.dispatch(state.tr.setStoredMarks(legacyMarkInstance.addToSet(marks)));
+      }
+      return;
+    }
+
+    if (hasLegacy) {
+      editor.view.dispatch(state.tr.setStoredMarks(legacyMarkInstance.removeFromSet(marks)));
+    }
+  }, [editor, marathiEditor, typingMode]);
 
   React.useEffect(() => {
     if (!equationPanelOpen) {
@@ -416,6 +514,45 @@ export function RichTextEditor({
   return (
     <FormField label={label} description={description} error={error}>
       <div className="overflow-hidden rounded-2xl border border-input bg-background">
+        {marathiEditor ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">
+              Marathi editor supports Unicode + legacy text together. Choose typing mode below.
+            </p>
+            <div className="inline-flex rounded-xl border border-input bg-background p-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setTypingMode("unicode");
+                  editor?.chain().focus().run();
+                }}
+                className={cn(
+                  "rounded-lg px-2 py-1 text-xs font-medium transition",
+                  typingMode === "unicode"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Unicode
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTypingMode("legacy");
+                  editor?.chain().focus().run();
+                }}
+                className={cn(
+                  "rounded-lg px-2 py-1 text-xs font-medium transition",
+                  typingMode === "legacy"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Legacy
+              </button>
+            </div>
+          </div>
+        ) : null}
         <div className="flex flex-wrap gap-1 border-b border-border bg-muted/40 p-2">
           <ToolbarButton
             icon={Bold}

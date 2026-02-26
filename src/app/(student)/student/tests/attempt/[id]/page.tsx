@@ -6,6 +6,7 @@ import { AlertTriangle, Clock, Send, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { QuestionCard } from "@/modules/student-questions/QuestionCard";
+import { QuestionLanguageSwitcher } from "@/modules/student-questions/QuestionLanguageSwitcher";
 import type { AnswerState, AnswerValue } from "@/modules/student-questions/types";
 import {
   useAttempt,
@@ -35,6 +36,10 @@ function cleanAnswers(answers: AnswerState) {
     }
   });
   return result;
+}
+
+function getNumberFromScore(value: unknown): number | null {
+  return typeof value === "number" ? value : null;
 }
 
 export default function StudentTestAttemptPage() {
@@ -117,7 +122,7 @@ export default function StudentTestAttemptPage() {
     setAnswers((prev) => ({ ...prev, [question.id]: value }));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = React.useCallback(async () => {
     if (!attempt) return;
     if (isSubmitting || submittedResult) return;
     setError(null);
@@ -142,13 +147,20 @@ export default function StudentTestAttemptPage() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [
+    answers,
+    attempt,
+    isSubmitting,
+    localStorageKey,
+    submitAttempt,
+    submittedResult,
+  ]);
 
   React.useEffect(() => {
     if (timeLeftMs !== null && timeLeftMs <= 0 && !submittedResult) {
       void handleSubmit();
     }
-  }, [timeLeftMs, submittedResult]);
+  }, [handleSubmit, submittedResult, timeLeftMs]);
 
   if (isLoading) {
     return (
@@ -167,7 +179,10 @@ export default function StudentTestAttemptPage() {
   }
 
   if (submittedResult) {
-    const scoreJson = submittedResult.scoreJson as Record<string, any>;
+    const scoreJson = submittedResult.scoreJson;
+    const totalQuestions = getNumberFromScore(scoreJson.totalQuestions);
+    const correctCount = getNumberFromScore(scoreJson.correctCount);
+    const wrongCount = getNumberFromScore(scoreJson.wrongCount);
     return (
       <div className="space-y-6">
         <div className="rounded-3xl border border-border bg-card/90 p-6 shadow-sm">
@@ -186,7 +201,7 @@ export default function StudentTestAttemptPage() {
               Questions
             </p>
             <p className="mt-2 text-2xl font-semibold">
-              {scoreJson.totalQuestions ?? questions.length}
+              {totalQuestions ?? questions.length}
             </p>
           </div>
           <div className="rounded-3xl border border-border bg-card/90 p-5 shadow-sm">
@@ -194,7 +209,7 @@ export default function StudentTestAttemptPage() {
               Correct
             </p>
             <p className="mt-2 text-2xl font-semibold">
-              {scoreJson.correctCount ?? "--"}
+              {correctCount ?? "--"}
             </p>
           </div>
           <div className="rounded-3xl border border-border bg-card/90 p-5 shadow-sm">
@@ -202,7 +217,7 @@ export default function StudentTestAttemptPage() {
               Wrong
             </p>
             <p className="mt-2 text-2xl font-semibold">
-              {scoreJson.wrongCount ?? "--"}
+              {wrongCount ?? "--"}
             </p>
           </div>
         </div>
@@ -235,9 +250,12 @@ export default function StudentTestAttemptPage() {
               Answer all questions before time runs out.
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-muted-foreground">
-            <Clock className="h-3.5 w-3.5" />
-            {timeLeftMs !== null ? formatTime(timeLeftMs) : "--:--"}
+          <div className="flex flex-wrap items-center gap-2">
+            <QuestionLanguageSwitcher />
+            <div className="flex items-center gap-2 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" />
+              {timeLeftMs !== null ? formatTime(timeLeftMs) : "--:--"}
+            </div>
           </div>
         </div>
       </div>

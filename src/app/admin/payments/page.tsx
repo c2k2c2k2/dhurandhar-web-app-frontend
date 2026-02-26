@@ -43,13 +43,13 @@ function formatAmount(paise?: number | null) {
 function statusBadge(status?: string | null) {
   const normalized = status || "UNKNOWN";
   const classes: Record<string, string> = {
-    SUCCESS: "bg-emerald-50 text-emerald-700",
-    FAILED: "bg-rose-50 text-rose-700",
-    PENDING: "bg-amber-50 text-amber-700",
-    CREATED: "bg-amber-50 text-amber-700",
-    EXPIRED: "bg-slate-100 text-slate-600",
-    CANCELLED: "bg-slate-100 text-slate-600",
-    REFUNDED: "bg-indigo-50 text-indigo-700",
+    SUCCESS: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+    FAILED: "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
+    PENDING: "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
+    CREATED: "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
+    EXPIRED: "bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-200",
+    CANCELLED: "bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-200",
+    REFUNDED: "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200",
   };
   return (
     <span
