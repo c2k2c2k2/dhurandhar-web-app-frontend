@@ -1,15 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Check, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/modules/i18n";
 import { useStudentAccess } from "@/modules/student-auth/StudentAuthProvider";
-import { useCreateOrder, usePlanOptions, usePlans } from "@/modules/student-payments/hooks";
+import { usePlanOptions, usePlans } from "@/modules/student-payments/hooks";
 import type { PlanPurchase } from "@/modules/student-payments/types";
-import { formatCurrency, storePaymentContext } from "@/modules/student-payments/utils";
-import { trackStudentEvent } from "@/modules/student-analytics/events";
+import { formatCurrency } from "@/modules/student-payments/utils";
 
 function normalizeFeatures(features: unknown): string[] {
   if (Array.isArray(features)) {
@@ -36,14 +35,12 @@ export default function StudentPaymentsPage() {
 }
 
 function PaymentsContent() {
+  const router = useRouter();
   const params = useSearchParams();
   const { t } = useI18n();
   const { data: planOptions = [], isLoading: loadingOptions } = usePlanOptions();
   const { data: basicPlans = [], isLoading: loadingBasicPlans } = usePlans();
   const { subscription } = useStudentAccess();
-  const createOrder = useCreateOrder();
-  const [couponCode, setCouponCode] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
   const isLoading = loadingOptions || loadingBasicPlans;
 
   const plans = React.useMemo(
@@ -66,29 +63,14 @@ function PaymentsContent() {
     [basicPlans, planOptions],
   );
 
-  const handleCheckout = async (planId: string) => {
-    setError(null);
-    try {
-      const order = await createOrder.mutateAsync({
-        planId,
-        couponCode: couponCode.trim() || undefined,
-      });
-      storePaymentContext({
-        merchantTransactionId: order.merchantTransactionId,
-        nextPath: params.get("next") ?? undefined,
-      });
-      trackStudentEvent("payment_initiated", {
-        planId,
-        merchantTransactionId: order.merchantTransactionId,
-      });
-      window.location.assign(order.redirectUrl);
-    } catch (err) {
-      const message =
-        err && typeof err === "object" && "message" in err
-          ? String((err as { message?: string }).message ?? "")
-          : "Unable to start payment.";
-      setError(message || "Unable to start payment.");
+  const handleCheckout = (planId: string) => {
+    const query = new URLSearchParams();
+    query.set("planId", planId);
+    const next = params.get("next");
+    if (next) {
+      query.set("next", next);
     }
+    router.push(`/student/payments/checkout?${query.toString()}`);
   };
 
   return (
@@ -129,24 +111,13 @@ function PaymentsContent() {
         </div>
 
         <div className="rounded-3xl border border-border bg-card/90 p-5 shadow-sm">
-          <p className="text-sm font-semibold">Have a coupon?</p>
+          <p className="text-sm font-semibold">Checkout step added</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Apply a coupon code during checkout.
+            Review plan details, coupon discount, and AutoPay options before redirecting to
+            PhonePe.
           </p>
-          <input
-            className="mt-3 h-10 w-full rounded-2xl border border-border bg-background px-3 text-sm"
-            placeholder="Enter coupon code"
-            value={couponCode}
-            onChange={(event) => setCouponCode(event.target.value)}
-          />
         </div>
       </div>
-
-      {error ? (
-        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         {plans.map((plan, index) => {
@@ -157,11 +128,11 @@ function PaymentsContent() {
             ? subscription.plan.id === plan.id
             : index === 1;
           const purchase = plan.purchase;
-          const disabled = createOrder.isPending || purchase?.canPurchase === false;
+          const disabled = purchase?.canPurchase === false;
           const ctaLabel =
             purchase?.mode === "RENEW"
               ? `Renew ${plan.name}`
-              : `Buy ${plan.name}`;
+              : `Continue with ${plan.name}`;
           return (
             <div
               key={plan.id}

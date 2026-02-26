@@ -17,8 +17,22 @@ export function usePlanOptions() {
 
 export function useCreateOrder() {
   return useMutation({
-    mutationFn: (payload: { planId: string; couponCode?: string }) =>
+    mutationFn: (payload: {
+      planId: string;
+      couponCode?: string;
+      enableAutoPay?: boolean;
+    }) =>
       api.createOrder(payload),
+  });
+}
+
+export function useCheckoutPreview() {
+  return useMutation({
+    mutationFn: (payload: {
+      planId: string;
+      couponCode?: string;
+      enableAutoPay?: boolean;
+    }) => api.previewCheckout(payload),
   });
 }
 

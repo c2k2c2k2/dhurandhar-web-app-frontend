@@ -40,14 +40,50 @@ export type CheckoutResponse = {
   merchantTransactionId: string;
   orderId: string;
   amountPaise: number;
+  flow?: "ONE_TIME" | "AUTOPAY_SETUP" | "AUTOPAY_CHARGE";
+  autoPay?: {
+    enabled: boolean;
+  };
 };
 
 export type PaymentOrder = {
   id: string;
   status: "CREATED" | "PENDING" | "SUCCESS" | "FAILED" | "EXPIRED" | "CANCELLED" | "REFUNDED";
+  flow?: "ONE_TIME" | "AUTOPAY_SETUP" | "AUTOPAY_CHARGE";
   merchantTransactionId: string;
   amountPaise: number;
   finalAmountPaise: number;
   createdAt?: string;
   completedAt?: string | null;
+};
+
+export type CheckoutPreview = {
+  plan: {
+    id: string;
+    key: string;
+    name: string;
+    tier?: string | null;
+    durationDays: number;
+    validity?: {
+      unit: "DAYS" | "MONTHS" | "YEARS" | "LIFETIME" | string;
+      value?: number | null;
+      durationDays: number;
+      label?: string;
+    };
+  };
+  baseAmountPaise: number;
+  discountPaise: number;
+  finalAmountPaise: number;
+  coupon?: {
+    code: string;
+    discountPaise: number;
+  } | null;
+  autoPay: {
+    requested: boolean;
+    eligible: boolean;
+    reason: string;
+    message: string;
+    intervalUnit: "DAY" | "MONTH" | "YEAR" | string;
+    intervalCount: number;
+  };
 };

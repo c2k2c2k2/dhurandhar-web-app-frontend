@@ -19,7 +19,9 @@ export type UserListResponse = {
 };
 
 export type UserRole = {
-  id: string;
+  userId?: string;
+  roleId?: string;
+  assignedAt?: string;
   role: {
     id: string;
     key?: string;
@@ -33,6 +35,12 @@ export type UserSubscription = {
   startsAt?: string;
   endsAt?: string | null;
   planId?: string;
+  plan?: {
+    id?: string;
+    key?: string;
+    name?: string | null;
+    tier?: string | null;
+  } | null;
   metadataJson?: unknown;
 };
 
@@ -63,6 +71,7 @@ export type UserDetail = {
   lastLoginAt?: string | null;
   lastActiveAt?: string | null;
   userRoles?: UserRole[];
+  effectivePermissions?: string[];
   subscriptions?: UserSubscription[];
   entitlements?: UserEntitlement[];
   activity?: UserActivity;

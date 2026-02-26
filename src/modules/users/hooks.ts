@@ -22,11 +22,35 @@ export function useUsers(query: UsersQuery) {
   });
 }
 
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: api.CreateUserPayload) => api.createUser(payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+    },
+  });
+}
+
 export function useUser(userId?: string) {
   return useQuery({
     queryKey: ["admin", "users", userId],
     queryFn: () => api.getUser(userId as string),
     enabled: Boolean(userId),
+  });
+}
+
+export function useUpdateUser(userId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: api.UpdateUserPayload) =>
+      api.updateUser(userId as string, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      if (userId) {
+        await queryClient.invalidateQueries({ queryKey: ["admin", "users", userId] });
+      }
+    },
   });
 }
 
@@ -79,6 +103,28 @@ export function useRevokeEntitlement(userId: string) {
       api.revokeEntitlement(userId, payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin", "users", userId] });
+    },
+  });
+}
+
+export function useActivateUserSubscription(userId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: api.ActivateSubscriptionPayload & { userId?: string }) => {
+      const targetUserId = userId ?? payload.userId;
+      if (!targetUserId) {
+        throw new Error("User id is required to activate subscription.");
+      }
+      const { userId: _ignoredUserId, ...body } = payload;
+      return api.activateSubscription(targetUserId, body);
+    },
+    onSuccess: async (_, variables) => {
+      const targetUserId = userId ?? variables.userId;
+      if (targetUserId) {
+        await queryClient.invalidateQueries({ queryKey: ["admin", "users", targetUserId] });
+      }
+      await queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin", "payments"] });
     },
   });
 }

@@ -92,6 +92,12 @@ export const NAV_ITEMS: NavItem[] = [
     permissions: ["users.read"],
   },
   {
+    label: "Access Control",
+    href: "/admin/access-control",
+    icon: ShieldCheck,
+    permissions: ["rbac.read"],
+  },
+  {
     label: "Security",
     href: "/admin/security",
     icon: ShieldCheck,

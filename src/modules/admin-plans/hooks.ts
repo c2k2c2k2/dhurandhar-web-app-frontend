@@ -13,10 +13,11 @@ const plansKey = (query: AdminPlansQuery) => [
   query.pageSize ?? 20,
 ];
 
-export function useAdminPlans(query: AdminPlansQuery) {
+export function useAdminPlans(query: AdminPlansQuery, enabled = true) {
   return useQuery({
     queryKey: plansKey(query),
     queryFn: () => api.listAdminPlans(query),
+    enabled,
   });
 }
 
