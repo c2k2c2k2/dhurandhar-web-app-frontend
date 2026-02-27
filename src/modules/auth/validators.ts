@@ -1,3 +1,5 @@
+import { isIndianPhone } from "@/lib/phone";
+
 export type LoginPayload = {
   email: string;
   password: string;
@@ -6,7 +8,10 @@ export type LoginPayload = {
 export type RegisterPayload = {
   name: string;
   email: string;
+  phone: string;
   password: string;
+  confirmPassword: string;
+  otp: string;
   acceptTerms: boolean;
 };
 
@@ -41,10 +46,28 @@ export function validateRegister(payload: RegisterPayload) {
     errors.email = "Enter a valid email address.";
   }
 
+  if (!payload.phone.trim()) {
+    errors.phone = "Mobile number is required.";
+  } else if (!isIndianPhone(payload.phone)) {
+    errors.phone = "Enter a valid Indian mobile number.";
+  }
+
   if (!payload.password.trim()) {
     errors.password = "Password is required.";
   } else if (payload.password.trim().length < MIN_PASSWORD_LENGTH) {
     errors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+
+  if (!payload.confirmPassword.trim()) {
+    errors.confirmPassword = "Confirm password is required.";
+  } else if (payload.password !== payload.confirmPassword) {
+    errors.confirmPassword = "Passwords do not match.";
+  }
+
+  if (!payload.otp.trim()) {
+    errors.otp = "OTP is required.";
+  } else if (!/^\d{6}$/.test(payload.otp.trim())) {
+    errors.otp = "Enter a valid 6-digit OTP.";
   }
 
   if (!payload.acceptTerms) {

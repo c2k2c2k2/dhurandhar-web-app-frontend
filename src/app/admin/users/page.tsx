@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -11,7 +12,7 @@ import { useAccessRoles } from "@/modules/access-control/hooks";
 import { useAdminPlans } from "@/modules/admin-plans/hooks";
 import { DataTable, type DataTableColumn } from "@/modules/shared/components/DataTable";
 import { FiltersBar } from "@/modules/shared/components/FiltersBar";
-import { FormInput, FormSelect } from "@/modules/shared/components/FormField";
+import { FormField, FormInput, FormSelect } from "@/modules/shared/components/FormField";
 import { Modal } from "@/modules/shared/components/Modal";
 import { MultiSelectField } from "@/modules/shared/components/MultiSelect";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
@@ -81,6 +82,7 @@ export default function AdminUsersPage() {
   const [createName, setCreateName] = React.useState("");
   const [createPhone, setCreatePhone] = React.useState("");
   const [createPassword, setCreatePassword] = React.useState("");
+  const [createPasswordVisible, setCreatePasswordVisible] = React.useState(false);
   const [createType, setCreateType] = React.useState<"STUDENT" | "ADMIN">("STUDENT");
   const [createStatus, setCreateStatus] = React.useState<"ACTIVE" | "BLOCKED">("ACTIVE");
   const [createRoleIds, setCreateRoleIds] = React.useState<string[]>([]);
@@ -113,6 +115,7 @@ export default function AdminUsersPage() {
     setCreateName("");
     setCreatePhone("");
     setCreatePassword("");
+    setCreatePasswordVisible(false);
     setCreateType("STUDENT");
     setCreateStatus("ACTIVE");
     setCreateRoleIds([]);
@@ -382,13 +385,31 @@ export default function AdminUsersPage() {
               value={createEmail}
               onChange={(event) => setCreateEmail(event.target.value)}
             />
-            <FormInput
-              label="Password"
-              type="password"
-              placeholder="At least 6 characters"
-              value={createPassword}
-              onChange={(event) => setCreatePassword(event.target.value)}
-            />
+            <FormField label="Password">
+              <div className="relative">
+                <Input
+                  type={createPasswordVisible ? "text" : "password"}
+                  placeholder="At least 6 characters"
+                  value={createPassword}
+                  onChange={(event) => setCreatePassword(event.target.value)}
+                  className="pr-12"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+                  onClick={() => setCreatePasswordVisible((prev) => !prev)}
+                  aria-label={createPasswordVisible ? "Hide password" : "Show password"}
+                >
+                  {createPasswordVisible ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </FormField>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">

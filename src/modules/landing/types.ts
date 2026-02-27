@@ -5,19 +5,25 @@ export type NavItem = {
   href: string;
 };
 
-export type Exam = {
+export type HeroContent = {
+  badge: string;
+  headline: string;
+  subheadline: string;
+  primaryCtaLabel: string;
+  primaryCtaHref: string;
+  secondaryCtaLabel: string;
+  secondaryCtaHref: string;
+  trustLine: string;
+  trustBullets: string[];
+};
+
+export type FocusArea = {
   id: string;
-  name: string;
-  slug: string;
-  level: "Foundation" | "Advanced" | "Specialized";
-  shortDescription: string;
-  tags: Array<"popular" | "new" | "free">;
-  stats?: {
-    tests?: number;
-    practice?: number;
-    notes?: number;
-  };
-  isActive: boolean;
+  title: string;
+  description: string;
+  highlight: string;
+  href: string;
+  icon: LucideIcon;
 };
 
 export type UspItem = {
@@ -36,6 +42,7 @@ export type FeatureHighlight = {
   title: string;
   description: string;
   bullets: string[];
+  tone: "navy" | "gold" | "crimson";
 };
 
 export type PricingPlan = {
@@ -53,6 +60,12 @@ export type TrustSignal = {
   title: string;
   description: string;
   icon: LucideIcon;
+};
+
+export type Testimonial = {
+  quote: string;
+  name: string;
+  subtitle: string;
 };
 
 export type FooterLink = {

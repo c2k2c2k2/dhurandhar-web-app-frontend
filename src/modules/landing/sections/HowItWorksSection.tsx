@@ -5,26 +5,26 @@ import { howItWorksSteps } from "@/modules/landing/content";
 
 export function HowItWorksSection() {
   return (
-    <section id="how-it-works" className="py-16 md:py-20 bg-muted/30">
+    <section id="how-it-works" className="bg-muted/35 py-14 md:py-18">
       <PageContainer className="max-w-6xl">
         <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            How it works
+          <p className="text-xs font-semibold tracking-[0.16em] text-primary dark:text-brand-gold">
+            तयारीची सोपी पायरी
           </p>
-          <h2 className="font-display text-3xl font-semibold">
-            Start in minutes. Improve with daily practice.
+          <h2 className="font-display text-2xl font-semibold md:text-3xl">
+            सुरुवातीपासून सातत्यपूर्ण सरावापर्यंत, स्पष्ट मार्ग
           </h2>
         </div>
 
-        <div className="relative mt-10">
-          <div className="hidden md:block absolute left-6 right-6 top-7 h-px bg-border" />
+        <div className="relative mt-8">
+          <div className="absolute left-6 right-6 top-7 hidden h-px bg-border md:block" />
           <div className="grid gap-6 md:grid-cols-3">
             {howItWorksSteps.map((step) => (
               <div
                 key={step.step}
-                className="relative rounded-3xl border border-border bg-card p-6 shadow-sm"
+                className="relative rounded-3xl border border-border bg-card p-5 shadow-sm"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-primary/5 text-sm font-semibold text-primary dark:border-brand-gold/45 dark:bg-brand-gold/15 dark:text-brand-gold">
                   {step.step}
                 </div>
                 <h3 className="mt-4 text-base font-semibold">{step.title}</h3>
@@ -38,7 +38,12 @@ export function HowItWorksSection() {
 
         <div className="mt-10 flex justify-start">
           <Button variant="cta" className="w-full sm:w-auto" asChild>
-            <Link href="/auth/register?from=landing&plan=free">Start Learning</Link>
+            <Link
+              href="/auth/register?from=landing&plan=free"
+              title="Start with a free account"
+            >
+              आजच सुरुवात करा
+            </Link>
           </Button>
         </div>
       </PageContainer>

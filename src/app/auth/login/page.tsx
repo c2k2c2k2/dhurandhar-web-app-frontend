@@ -10,6 +10,7 @@ import { AuthLayout } from "@/modules/auth/components/AuthLayout";
 import { PasswordField } from "@/modules/auth/components/PasswordField";
 import { validateLogin } from "@/modules/auth/validators";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { AUTH_ERROR_QUERY_KEY, getAuthErrorMessage } from "@/lib/auth/sessionErrors";
 import { readQueryParams } from "@/modules/shared/routing/query";
 import {
   buildAuthUrl,
@@ -42,6 +43,10 @@ function LoginContent() {
     "from",
   ]);
   const redirectTarget = resolvePostAuthRedirect({ next, plan });
+  const authErrorCode = searchParams.get(AUTH_ERROR_QUERY_KEY) ?? undefined;
+  const authRedirectError = authErrorCode
+    ? getAuthErrorMessage(authErrorCode)
+    : null;
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -123,8 +128,10 @@ function LoginContent() {
           error={errors.password}
         />
 
-        {formError ? (
-          <p className="text-sm text-destructive">{formError}</p>
+        {formError || authRedirectError ? (
+          <p className="text-sm text-destructive">
+            {formError || authRedirectError}
+          </p>
         ) : null}
 
         <Button type="submit" className="w-full" disabled={submitting}>

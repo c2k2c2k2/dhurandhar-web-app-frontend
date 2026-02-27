@@ -11,6 +11,7 @@ import {
   Printer,
   Settings,
   ShieldCheck,
+  User,
   Users,
   Wallet,
 } from "lucide-react";
@@ -90,6 +91,11 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/admin/users",
     icon: Users,
     permissions: ["users.read"],
+  },
+  {
+    label: "My Profile",
+    href: "/admin/profile",
+    icon: User,
   },
   {
     label: "Access Control",

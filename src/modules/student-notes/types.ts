@@ -38,6 +38,8 @@ export type NoteViewSession = {
 
 export type WatermarkPayload = {
   displayName: string;
+  email?: string;
+  phone?: string;
   maskedEmail?: string;
   maskedPhone?: string;
   userHash: string;

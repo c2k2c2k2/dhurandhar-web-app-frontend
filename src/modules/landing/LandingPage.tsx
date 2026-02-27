@@ -14,9 +14,9 @@ export function LandingPage() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute left-1/2 top-[-220px] h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-primary/10 blur-[140px]" />
-          <div className="absolute right-[-120px] top-[160px] h-[420px] w-[420px] rounded-full bg-accent/10 blur-[160px]" />
-          <div className="absolute left-[-140px] top-[560px] h-[360px] w-[360px] rounded-full bg-brand-gold/10 blur-[140px]" />
+          <div className="absolute left-1/2 top-[-220px] h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-primary/8 blur-[130px] dark:bg-primary/18" />
+          <div className="absolute right-[-120px] top-[240px] h-[380px] w-[380px] rounded-full bg-accent/8 blur-[140px] dark:bg-brand-gold/10" />
+          <div className="absolute left-[-120px] top-[520px] h-[340px] w-[340px] rounded-full bg-brand-gold/12 blur-[130px] dark:bg-brand-gold/7" />
         </div>
 
         <LandingHeader />

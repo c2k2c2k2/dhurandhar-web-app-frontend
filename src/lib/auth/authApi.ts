@@ -19,7 +19,9 @@ export async function login(payload: {
 export async function register(payload: {
   fullName: string;
   email: string;
+  phone: string;
   password: string;
+  otp: string;
 }) {
   const data = await apiFetch<AuthTokens>("/auth/register", {
     method: "POST",
@@ -44,14 +46,19 @@ export async function refresh(payload: { refreshToken: string }) {
 
 export async function logout() {
   const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    clearTokens();
+    return;
+  }
+
   try {
-    if (refreshToken) {
-      await apiFetch<void>("/auth/logout", {
-        method: "POST",
-        body: JSON.stringify({ refreshToken }),
-        retryOnUnauthorized: false,
-      });
-    }
+    await apiFetch<void>("/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({ refreshToken }),
+      retryOnUnauthorized: false,
+    });
+  } catch {
+    // Best-effort logout: token may already be expired or invalid.
   } finally {
     clearTokens();
   }

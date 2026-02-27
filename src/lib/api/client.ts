@@ -1,9 +1,12 @@
 import {
-  clearTokens,
   getAccessToken,
   getRefreshToken,
   setTokens,
 } from "@/lib/auth/tokenStore";
+import {
+  handleAuthFailureRedirect,
+  isSessionTerminationCode,
+} from "@/lib/auth/sessionErrors";
 
 export type ApiError = {
   message: string;
@@ -80,7 +83,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 async function refreshTokens() {
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
-    return false;
+    return { ok: false as const };
   }
 
   try {
@@ -93,7 +96,8 @@ async function refreshTokens() {
     });
 
     if (!response.ok) {
-      return false;
+      const error = await normalizeError(response);
+      return { ok: false as const, code: error.code };
     }
 
     const data = (await parseResponseBody(response)) as Record<string, unknown>;
@@ -106,24 +110,13 @@ async function refreshTokens() {
       refreshToken;
 
     if (!accessToken) {
-      return false;
+      return { ok: false as const };
     }
 
     setTokens(accessToken, newRefreshToken);
-    return true;
+    return { ok: true as const };
   } catch {
-    return false;
-  }
-}
-
-function redirectToLogin() {
-  if (typeof window !== "undefined") {
-    const path = window.location.pathname || "";
-    if (path.startsWith("/student")) {
-      window.location.href = "/student/forbidden";
-      return;
-    }
-    window.location.href = "/admin/login";
+    return { ok: false as const };
   }
 }
 
@@ -153,8 +146,15 @@ export async function apiFetch<T>(
   const response = await fetch(resolveUrl(path), requestInit);
 
   if (response.status === 401 && retryOnUnauthorized) {
-    const refreshed = await refreshTokens();
-    if (refreshed) {
+    const unauthorizedError = await normalizeError(response.clone());
+
+    if (isSessionTerminationCode(unauthorizedError.code)) {
+      handleAuthFailureRedirect(unauthorizedError.code);
+      throw unauthorizedError;
+    }
+
+    const refreshResult = await refreshTokens();
+    if (refreshResult.ok) {
       const retryHeaders = new Headers(headers);
       const token = getAccessToken();
       if (token) {
@@ -167,8 +167,8 @@ export async function apiFetch<T>(
       return handleResponse<T>(retryResponse);
     }
 
-    clearTokens();
-    redirectToLogin();
+    handleAuthFailureRedirect(refreshResult.code ?? unauthorizedError.code);
+    throw unauthorizedError;
   }
 
   return handleResponse<T>(response);

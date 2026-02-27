@@ -4,28 +4,23 @@ import { featureHighlights } from "@/modules/landing/content";
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="scroll-mt-24 py-16 md:py-20">
+    <section id="features" className="scroll-mt-24 py-14 md:py-18">
       <PageContainer className="max-w-6xl">
         <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Course Toolkit
+          <p className="text-xs font-semibold tracking-[0.16em] text-primary dark:text-brand-gold">
+            डिजिटल अभ्यास प्लॅटफॉर्म
           </p>
-          <h2 className="font-display text-3xl font-semibold">
-            Deep focus on the tools that move your score.
+          <h2 className="font-display text-2xl font-semibold md:text-3xl">
+            जिथे तयारी मोजता येते, सुधारता येते आणि टिकवता येते
           </h2>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Each module is built to keep preparation structured, measurable, and
-            exam-ready.
+          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-base">
+            प्रत्येक मॉड्यूल प्रत्यक्ष तयारीसाठी: कमी गोंधळ, जास्त अंमलबजावणी.
           </p>
         </div>
 
-        <div className="mt-10 space-y-10">
-          {featureHighlights.map((feature, index) => (
-            <FeatureSpotlight
-              key={feature.title}
-              feature={feature}
-              isReversed={index % 2 === 1}
-            />
+        <div className="mt-8 grid gap-5 lg:grid-cols-3">
+          {featureHighlights.map((feature) => (
+            <FeatureSpotlight key={feature.title} feature={feature} />
           ))}
         </div>
       </PageContainer>
@@ -35,62 +30,55 @@ export function FeaturesSection() {
 
 type FeatureSpotlightProps = {
   feature: (typeof featureHighlights)[number];
-  isReversed?: boolean;
 };
 
-function FeatureSpotlight({ feature, isReversed }: FeatureSpotlightProps) {
+function FeatureSpotlight({ feature }: FeatureSpotlightProps) {
+  const toneClasses = getToneClasses(feature.tone);
   return (
     <div
       className={cn(
-        "flex flex-col gap-8 rounded-3xl border border-border bg-card/70 p-6 shadow-sm lg:flex-row lg:items-center",
-        isReversed && "lg:flex-row-reverse"
+        "h-full rounded-3xl border p-5 shadow-sm",
+        toneClasses.wrapper
       )}
     >
-      <div className="flex-1 space-y-4">
-        <h3 className="text-2xl font-semibold">{feature.title}</h3>
-        <p className="text-sm text-muted-foreground">
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">{feature.title}</h3>
+        <p className="text-sm leading-relaxed text-foreground/80">
           {feature.description}
         </p>
-        <ul className="space-y-2 text-sm text-muted-foreground">
+        <ul className="space-y-2 text-sm text-foreground/80">
           {feature.bullets.map((bullet) => (
             <li key={bullet} className="flex items-start gap-2">
-              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
+              <span className={cn("mt-1 h-1.5 w-1.5 rounded-full", toneClasses.dot)} />
               <span>{bullet}</span>
             </li>
           ))}
         </ul>
       </div>
-      <FeaturePreview title={feature.title} />
     </div>
   );
 }
 
-function FeaturePreview({ title }: { title: string }) {
-  return (
-    <div className="flex-1">
-      <div className="rounded-3xl border border-border bg-background/90 p-6">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            {title}
-          </p>
-          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-            Live preview
-          </span>
-        </div>
-        <div className="mt-6 grid gap-3">
-          {["Structured flow", "Quick revisions", "Score tracking"].map((item) => (
-            <div
-              key={item}
-              className="rounded-2xl border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground"
-            >
-              {item}
-            </div>
-          ))}
-        </div>
-        <div className="mt-6 rounded-2xl bg-primary/10 px-4 py-3 text-xs font-semibold text-primary">
-          Updated weekly to match exam patterns
-        </div>
-      </div>
-    </div>
-  );
+function getToneClasses(tone: (typeof featureHighlights)[number]["tone"]) {
+  if (tone === "gold") {
+    return {
+      wrapper:
+        "border-brand-gold/35 bg-brand-gold/10 dark:border-brand-gold/45 dark:bg-[linear-gradient(180deg,rgba(253,218,21,0.14),rgba(12,17,26,0.92))]",
+      dot: "bg-brand-gold",
+    };
+  }
+
+  if (tone === "crimson") {
+    return {
+      wrapper:
+        "border-accent/35 bg-accent/5 dark:border-accent/45 dark:bg-[linear-gradient(180deg,rgba(227,27,76,0.18),rgba(12,17,26,0.92))]",
+      dot: "bg-accent",
+    };
+  }
+
+  return {
+    wrapper:
+      "border-primary/35 bg-primary/[0.06] dark:border-primary/45 dark:bg-[linear-gradient(180deg,rgba(27,59,105,0.25),rgba(12,17,26,0.92))]",
+    dot: "bg-primary dark:bg-brand-gold",
+  };
 }

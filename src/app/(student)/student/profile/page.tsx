@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Calendar, Crown, LogOut, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { normalizeIndianPhone } from "@/lib/phone";
+import { updateMyProfile } from "@/modules/account/api";
+import { useToast } from "@/modules/shared/components/Toast";
 import { useStudentAccess } from "@/modules/student-auth/StudentAuthProvider";
 import {
   useNotesProgress,
@@ -21,18 +25,102 @@ function formatDate(value?: string | null) {
   return date.toLocaleDateString("en-IN", { dateStyle: "medium" });
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object" && "message" in error) {
+    return String(error.message);
+  }
+  return fallback;
+}
+
 export default function StudentProfilePage() {
   const router = useRouter();
-  const { logout } = useAuth();
-  const { me, subscription } = useStudentAccess();
+  const { toast } = useToast();
+  const { logout, refreshUser } = useAuth();
+  const { me, subscription, refresh } = useStudentAccess();
   const { data: summary } = useStudentSummary();
   const { data: practiceTopics } = usePracticeTopics(1, 6);
   const { data: notesProgress } = useNotesProgress({ page: 1, pageSize: 5 });
   const { data: testSummary } = useTestSummary();
+  const [fullName, setFullName] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [isDirty, setIsDirty] = React.useState(false);
+  const [profileError, setProfileError] = React.useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!me || isDirty) {
+      return;
+    }
+    setFullName(me.fullName ?? "");
+    setPhone(me.phone ?? "");
+  }, [isDirty, me]);
 
   const handleLogout = async () => {
     await logout();
     router.replace("/student/login");
+  };
+
+  const handleProfileReset = () => {
+    setFullName(me?.fullName ?? "");
+    setPhone(me?.phone ?? "");
+    setProfileError(null);
+    setIsDirty(false);
+  };
+
+  const handleProfileSave = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!me) {
+      return;
+    }
+
+    setProfileError(null);
+
+    const normalizedPhone = normalizeIndianPhone(phone);
+    if (!normalizedPhone) {
+      setProfileError("Enter a valid Indian mobile number.");
+      return;
+    }
+
+    const nextFullName = fullName.trim();
+    const currentFullName = (me.fullName ?? "").trim();
+    const currentPhone = (me.phone ?? "").trim();
+
+    const payload: { fullName?: string; phone?: string } = {};
+    if (nextFullName && nextFullName !== currentFullName) {
+      payload.fullName = nextFullName;
+    }
+    if (normalizedPhone !== currentPhone) {
+      payload.phone = normalizedPhone;
+    }
+
+    if (!payload.fullName && !payload.phone) {
+      setIsDirty(false);
+      toast({
+        title: "No changes",
+        description: "Profile details are already up to date.",
+      });
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      const updated = await updateMyProfile(payload);
+      setFullName(updated.fullName ?? "");
+      setPhone(updated.phone ?? "");
+      setIsDirty(false);
+      await Promise.all([refresh(), refreshUser()]);
+      toast({ title: "Profile updated" });
+    } catch (error) {
+      const message = getErrorMessage(error, "Unable to update profile.");
+      setProfileError(message);
+      toast({
+        title: "Update failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const progressCards = [
@@ -94,6 +182,61 @@ export default function StudentProfilePage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-3xl border border-border bg-card/90 p-5 shadow-sm md:col-span-2">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold">Account details</p>
+            <p className="text-xs text-muted-foreground">
+              Used for login protection and watermarking.
+            </p>
+          </div>
+          <form className="mt-4 space-y-4" onSubmit={handleProfileSave}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Full name</label>
+                <Input
+                  value={fullName}
+                  onChange={(event) => {
+                    setFullName(event.target.value);
+                    setIsDirty(true);
+                  }}
+                  placeholder="Your name"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Mobile number</label>
+                <Input
+                  value={phone}
+                  onChange={(event) => {
+                    setPhone(event.target.value);
+                    setIsDirty(true);
+                  }}
+                  placeholder="+91 98765 43210"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Indian mobile number only.
+                </p>
+              </div>
+            </div>
+            {profileError ? (
+              <p className="text-sm text-destructive">{profileError}</p>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={savingProfile}>
+                {savingProfile ? "Saving..." : "Save profile"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleProfileReset}
+                disabled={savingProfile || !isDirty}
+              >
+                Reset
+              </Button>
+            </div>
+          </form>
+        </div>
+
         <div className="rounded-3xl border border-border bg-card/90 p-5 shadow-sm">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Crown className="h-4 w-4 text-accent" />

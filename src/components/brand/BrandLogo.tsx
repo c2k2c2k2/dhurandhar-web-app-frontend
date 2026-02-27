@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 
 type BrandLogoProps = {
   href?: string;
+  linkTitle?: string;
   className?: string;
   imageClassName?: string;
   textClassName?: string;
@@ -17,6 +18,7 @@ type BrandLogoProps = {
 
 export function BrandLogo({
   href,
+  linkTitle = "Go to home page",
   className,
   imageClassName,
   textClassName,
@@ -64,7 +66,7 @@ export function BrandLogo({
   }
 
   return (
-    <Link href={href} aria-label="Dhurandhar home">
+    <Link href={href} aria-label="Dhurandhar home" title={linkTitle}>
       {content}
     </Link>
   );

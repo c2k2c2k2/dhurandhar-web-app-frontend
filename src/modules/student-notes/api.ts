@@ -1,5 +1,9 @@
 import { apiFetch } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/auth/tokenStore";
+import {
+  handleAuthFailureRedirect,
+  isSessionTerminationCode,
+} from "@/lib/auth/sessionErrors";
 import type {
   NoteDetail,
   NoteItem,
@@ -77,7 +81,29 @@ export async function streamPdf(noteId: string, viewToken: string) {
   });
 
   if (!response.ok) {
-    throw new Error("Failed to fetch PDF stream.");
+    const contentType = response.headers.get("content-type") || "";
+    let message = "Failed to fetch PDF stream.";
+    let code: string | undefined;
+    if (contentType.includes("application/json")) {
+      const payload = (await response.json()) as { message?: string; code?: string };
+      if (payload?.message) {
+        message = payload.message;
+      }
+      if (payload?.code) {
+        code = payload.code;
+      }
+    } else {
+      const text = await response.text();
+      if (text) {
+        message = text;
+      }
+    }
+
+    if (response.status === 401 && isSessionTerminationCode(code)) {
+      handleAuthFailureRedirect(code);
+    }
+
+    throw new Error(message);
   }
 
   return response.arrayBuffer();

@@ -2,20 +2,40 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { AUTH_ERROR_QUERY_KEY, getAuthErrorMessage } from "@/lib/auth/sessionErrors";
 
 export default function StudentLoginPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="flex min-h-[60vh] items-center justify-center text-sm text-muted-foreground">
+          Loading...
+        </div>
+      }
+    >
+      <StudentLoginContent />
+    </React.Suspense>
+  );
+}
+
+function StudentLoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, status, error, user, logout } = useAuth();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
+  const authErrorCode = searchParams.get(AUTH_ERROR_QUERY_KEY) ?? undefined;
+  const authRedirectError = authErrorCode
+    ? getAuthErrorMessage(authErrorCode)
+    : null;
 
   React.useEffect(() => {
     if (status !== "authenticated") {
@@ -89,9 +109,9 @@ export default function StudentLoginPage() {
                 required
               />
             </div>
-            {(formError || error) && (
+            {(formError || authRedirectError || error) && (
               <p className="text-sm text-destructive">
-                {formError || error}
+                {formError || authRedirectError || error}
               </p>
             )}
             <Button type="submit" className="w-full" disabled={submitting}>

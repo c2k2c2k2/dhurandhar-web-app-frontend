@@ -3,6 +3,7 @@
 import * as React from "react";
 import * as authApi from "@/lib/auth/authApi";
 import { clearTokens, getAccessToken } from "@/lib/auth/tokenStore";
+import { getAuthErrorMessage } from "@/lib/auth/sessionErrors";
 import type { UserMe } from "@/lib/auth/types";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
@@ -21,6 +22,20 @@ type AuthContextValue = {
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined);
 
+function getErrorDetails(error: unknown) {
+  if (error && typeof error === "object") {
+    const payload = error as { message?: string; code?: string };
+    return {
+      message: payload.message ? String(payload.message) : undefined,
+      code: payload.code ? String(payload.code) : undefined,
+    };
+  }
+  if (error instanceof Error) {
+    return { message: error.message };
+  }
+  return {};
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<UserMe | null>(null);
   const [status, setStatus] = React.useState<AuthStatus>("loading");
@@ -36,7 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTokens();
       setUser(null);
       setStatus("unauthenticated");
-      setError(err instanceof Error ? err.message : "Unable to load session");
+      const { message, code } = getErrorDetails(err);
+      setError(getAuthErrorMessage(code, message || "Unable to load session"));
     }
   }, []);
 
@@ -81,21 +97,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { ok: true };
       } catch (err) {
         setStatus("unauthenticated");
-        const message =
-          err && typeof err === "object" && "message" in err
-            ? String(err.message)
-            : "Login failed";
-        setError(message);
-        return { ok: false, error: message };
+        const { message, code } = getErrorDetails(err);
+        const resolvedMessage = getAuthErrorMessage(code, message || "Login failed");
+        setError(resolvedMessage);
+        return { ok: false, error: resolvedMessage };
       }
     },
     []
   );
 
   const logout = React.useCallback(async () => {
-    await authApi.logout();
-    setUser(null);
-    setStatus("unauthenticated");
+    try {
+      await authApi.logout();
+    } catch {
+      // Keep client state reset even if logout API call fails.
+    } finally {
+      setUser(null);
+      setStatus("unauthenticated");
+      setError(null);
+    }
   }, []);
 
   const value: AuthContextValue = {

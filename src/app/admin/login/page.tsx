@@ -1,20 +1,40 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { AUTH_ERROR_QUERY_KEY, getAuthErrorMessage } from "@/lib/auth/sessionErrors";
 
 export default function AdminLoginPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="flex min-h-[60vh] items-center justify-center text-sm text-muted-foreground">
+          Loading...
+        </div>
+      }
+    >
+      <AdminLoginContent />
+    </React.Suspense>
+  );
+}
+
+function AdminLoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, status, error } = useAuth();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
+  const authErrorCode = searchParams.get(AUTH_ERROR_QUERY_KEY) ?? undefined;
+  const authRedirectError = authErrorCode
+    ? getAuthErrorMessage(authErrorCode)
+    : null;
 
   React.useEffect(() => {
     if (status === "authenticated") {
@@ -71,9 +91,9 @@ export default function AdminLoginPage() {
                 required
               />
             </div>
-            {(formError || error) && (
+            {(formError || authRedirectError || error) && (
               <p className="text-sm text-destructive">
-                {formError || error}
+                {formError || authRedirectError || error}
               </p>
             )}
             <Button
