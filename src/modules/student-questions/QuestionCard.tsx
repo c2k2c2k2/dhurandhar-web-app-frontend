@@ -188,21 +188,37 @@ export function QuestionCard({
     ? normalizeOptions(question.optionsJson, "mr", false)
     : [];
 
-  let options = primaryOptions.filter(
-    (option) => option.text || option.html || option.imageAssetId
-  );
+  let options = primaryOptions
+    .map((option, index) => ({ index, option }))
+    .filter(({ option, index }) => {
+      const secondaryOption = marathiOptions[index];
+      return Boolean(
+        option.text ||
+          option.html ||
+          option.imageAssetId ||
+          secondaryOption?.text ||
+          secondaryOption?.html ||
+          secondaryOption?.imageAssetId
+      );
+    });
 
   if (question.type === "TRUE_FALSE" && options.length === 0) {
     options = [
       {
-        text: t("student.question.true", "True"),
-        html: undefined,
-        imageAssetId: undefined,
+        index: 0,
+        option: {
+          text: t("student.question.true", "True"),
+          html: undefined,
+          imageAssetId: undefined,
+        },
       },
       {
-        text: t("student.question.false", "False"),
-        html: undefined,
-        imageAssetId: undefined,
+        index: 1,
+        option: {
+          text: t("student.question.false", "False"),
+          html: undefined,
+          imageAssetId: undefined,
+        },
       },
     ];
   }
@@ -286,7 +302,7 @@ export function QuestionCard({
 
       {isChoice && options.length > 0 ? (
         <div className="space-y-3">
-          {options.map((option, index) => {
+          {options.map(({ index, option }) => {
             const isSelected = selectedIndexes.includes(index);
             const isCorrectOption = correctOptionIndexes.includes(index);
             const showReviewedState = Boolean(review?.correctAnswerJson);

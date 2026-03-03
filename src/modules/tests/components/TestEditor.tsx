@@ -11,7 +11,6 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { hasPermission } from "@/lib/auth/permissions";
 import { useToast } from "@/modules/shared/components/Toast";
 import {
-  FormField,
   FormInput,
   FormSelect,
   FormTextarea,
@@ -27,6 +26,12 @@ import { extractText, truncateText } from "@/modules/questions/utils";
 import { TestFormSchema, type TestFormValues } from "../schemas";
 import type { TestConfig, TestItem, TestType } from "../types";
 import { useCreateTest, useTest, useTestPresets, useUpdateTest } from "../hooks";
+import {
+  buildSectionsFromEditor,
+  mapSectionsToEditor,
+  TestSectionsEditor,
+  type EditableTestSection,
+} from "./TestSectionsEditor";
 
 function getTopicName(topic: Topic) {
   return topic.name || topic.title || "Untitled";
@@ -57,16 +62,6 @@ function parseQuestionIds(text?: string) {
     .filter(Boolean);
 }
 
-function parseSectionsJson(text?: string) {
-  const trimmed = text?.trim();
-  if (!trimmed) return undefined;
-  const parsed = JSON.parse(trimmed) as unknown;
-  if (!Array.isArray(parsed)) {
-    throw new Error("Sections JSON must be an array.");
-  }
-  return parsed as TestConfig["sections"];
-}
-
 function mapTestToForm(test: TestItem): TestFormValues {
   const config = (test.configJson || {}) as TestConfig;
   const questionIds =
@@ -86,9 +81,6 @@ function mapTestToForm(test: TestItem): TestFormValues {
     mixerTopicIds: config.mixer?.topicIds ?? [],
     presetKey: config.presetKey ?? "",
     questionIdsText: questionIds.join("\n"),
-    sectionsJson: Array.isArray(config.sections)
-      ? JSON.stringify(config.sections, null, 2)
-      : "",
     durationMinutes: config.durationMinutes ?? undefined,
     marksPerQuestion: config.marksPerQuestion ?? undefined,
     negativeMarksPerWrong: config.negativeMarksPerWrong ?? undefined,
@@ -129,7 +121,6 @@ export function TestEditor({ testId }: { testId?: string }) {
       mixerTopicIds: [],
       presetKey: "",
       questionIdsText: "",
-      sectionsJson: "",
       durationMinutes: undefined,
       marksPerQuestion: undefined,
       negativeMarksPerWrong: undefined,
@@ -148,12 +139,21 @@ export function TestEditor({ testId }: { testId?: string }) {
 
   const createTest = useCreateTest();
   const updateTest = useUpdateTest();
+  const [sections, setSections] = React.useState<EditableTestSection[]>([]);
 
   React.useEffect(() => {
     if (isEdit && test) {
       form.reset(mapTestToForm(test));
+      const config = (test.configJson || {}) as TestConfig;
+      setSections(mapSectionsToEditor(config.sections));
     }
   }, [isEdit, test, form]);
+
+  React.useEffect(() => {
+    if (!isEdit) {
+      setSections([]);
+    }
+  }, [isEdit]);
 
   const handleSubmit = async (values: TestFormValues) => {
     const questionIds = parseQuestionIds(values.questionIdsText);
@@ -174,20 +174,9 @@ export function TestEditor({ testId }: { testId?: string }) {
       }
     }
 
-    try {
-      if (values.sectionsJson?.trim()) {
-        config.sections = parseSectionsJson(values.sectionsJson);
-      }
-    } catch (err) {
-      toast({
-        title: "Invalid sections JSON",
-        description:
-          err instanceof Error
-            ? err.message
-            : "Unable to parse sections JSON.",
-        variant: "destructive",
-      });
-      return;
+    const builtSections = buildSectionsFromEditor(sections);
+    if (builtSections.length) {
+      config.sections = builtSections;
     }
 
     if (values.marksPerQuestion) {
@@ -234,8 +223,8 @@ export function TestEditor({ testId }: { testId?: string }) {
     }
   };
 
-  const topicOptions = topics || [];
   const topicList = React.useMemo(() => {
+    const topicOptions = topics ?? [];
     const byId = new Map(topicOptions.map((topic) => [topic.id, topic]));
     const buildLabel = (topic: Topic) => {
       const parts: string[] = [];
@@ -252,7 +241,7 @@ export function TestEditor({ testId }: { testId?: string }) {
     return topicOptions
       .map((topic) => ({ id: topic.id, label: buildLabel(topic) }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [topicOptions]);
+  }, [topics]);
 
   const previewQuestionIds = React.useMemo(() => {
     const ids = parseQuestionIds(questionIdsText);
@@ -430,7 +419,7 @@ export function TestEditor({ testId }: { testId?: string }) {
                     form.setValue("durationMinutes", preset.durationMinutes);
                     form.setValue("marksPerQuestion", preset.marksPerQuestion);
                     form.setValue("negativeMarksPerWrong", preset.negativeMarksPerWrong);
-                    form.setValue("sectionsJson", JSON.stringify(preset.sections, null, 2));
+                    setSections(mapSectionsToEditor(preset.sections));
                   }}
                 >
                   <option value="">No preset (use mixer)</option>
@@ -497,17 +486,16 @@ export function TestEditor({ testId }: { testId?: string }) {
                   </>
                 ) : (
                   <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
-                    Preset is active. You can adjust sections using the JSON field below.
+                    Preset is active. You can still adjust the section rules below.
                   </div>
                 )}
 
-                <FormTextarea
-                  label="Sections JSON (optional)"
-                  description="Use to define section-wise count/time/marking rules."
-                  error={form.formState.errors.sectionsJson?.message}
-                  className="min-h-[170px]"
-                  placeholder='[{\"key\":\"reasoning\",\"title\":\"Reasoning\",\"count\":15}]'
-                  {...form.register("sectionsJson")}
+                <TestSectionsEditor
+                  label="Sections (optional)"
+                  description="Define section-wise count, timing, and marking rules using simple form fields."
+                  sections={sections}
+                  onChange={setSections}
+                  subjects={subjects}
                 />
               </div>
             )}

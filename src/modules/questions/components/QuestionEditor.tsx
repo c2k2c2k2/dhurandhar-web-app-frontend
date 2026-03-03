@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm, type Path } from "react-hook-form";
+import { Eye } from "lucide-react";
+import { Controller, useForm, useWatch, type Path } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -21,10 +22,14 @@ import { FileUpload } from "@/modules/shared/FileUpload";
 import { useSubjects } from "@/modules/taxonomy/subjects/hooks";
 import { useTopics } from "@/modules/taxonomy/topics/hooks";
 import type { Topic } from "@/modules/taxonomy/topics/types";
-import type { QuestionContentBlock, QuestionDetail, QuestionType } from "../types";
+import type { QuestionDetail, QuestionType } from "../types";
 import { QuestionFormSchema, type QuestionFormValues } from "../schemas";
 import {
-  buildContent,
+  buildQuestionPayload,
+  QUESTION_OPTION_LABELS,
+  sortQuestionOptionIndexes,
+} from "../question-form";
+import {
   extractLocalizedContentBlock,
   extractText,
   hasLanguageVariant,
@@ -33,8 +38,8 @@ import {
 import { getAssetUrl } from "@/lib/api/assets";
 import { useCreateQuestion, useQuestion, useUpdateQuestion } from "../hooks";
 import { RichTextEditor } from "./RichTextEditor";
+import { QuestionPreviewModal } from "./QuestionPreviewModal";
 
-const OPTION_LABELS = ["A", "B", "C", "D"];
 const LANGUAGE_MODES = [
   {
     value: "ENGLISH" as const,
@@ -72,7 +77,7 @@ function createEmptyContent(): LocalizedContentInput {
 }
 
 function createEmptyOptions() {
-  return OPTION_LABELS.map(() => createEmptyContent());
+  return QUESTION_OPTION_LABELS.map(() => createEmptyContent());
 }
 
 function detectLanguageMode(question: QuestionDetail): QuestionLanguageMode {
@@ -267,8 +272,10 @@ function mapQuestionToForm(question: QuestionDetail): QuestionFormValues {
       values.correctOptionIndex = correctAnswer.optionIndex;
     }
     if ("optionIndexes" in correctAnswer && Array.isArray(correctAnswer.optionIndexes)) {
-      values.correctOptionIndexes = correctAnswer.optionIndexes.filter(
-        (index): index is number => typeof index === "number"
+      values.correctOptionIndexes = sortQuestionOptionIndexes(
+        correctAnswer.optionIndexes.filter(
+          (index): index is number => typeof index === "number"
+        )
       );
     }
     if ("value" in correctAnswer) {
@@ -289,127 +296,6 @@ function mapQuestionToForm(question: QuestionDetail): QuestionFormValues {
   return values;
 }
 
-function buildCorrectAnswer(values: QuestionFormValues) {
-  switch (values.type) {
-    case "SINGLE_CHOICE":
-      return typeof values.correctOptionIndex === "number"
-        ? { optionIndex: values.correctOptionIndex }
-        : undefined;
-    case "MULTI_CHOICE":
-      return values.correctOptionIndexes?.length
-        ? { optionIndexes: values.correctOptionIndexes }
-        : undefined;
-    case "TRUE_FALSE":
-      return values.correctBoolean
-        ? { value: values.correctBoolean === "true" }
-        : undefined;
-    case "INTEGER": {
-      const trimmed = values.correctText?.trim();
-      if (!trimmed) return undefined;
-      const numeric = Number(trimmed);
-      return { value: Number.isNaN(numeric) ? trimmed : numeric };
-    }
-    case "SHORT_ANSWER": {
-      const trimmed = values.correctText?.trim();
-      return trimmed ? { value: trimmed } : undefined;
-    }
-    default:
-      return undefined;
-  }
-}
-
-function buildLocalizedContent(
-  mode: QuestionLanguageMode,
-  english: LocalizedContentInput,
-  marathi: LocalizedContentInput
-): Record<string, unknown> | QuestionContentBlock | undefined {
-  const englishContent = buildContent(english.text, english.imageAssetId, english.html);
-  const marathiContent = buildContent(marathi.text, marathi.imageAssetId, marathi.html);
-
-  if (mode === "ENGLISH") {
-    if (!englishContent) return undefined;
-    return {
-      ...englishContent,
-      languageMode: "ENGLISH",
-      primaryLanguage: "en",
-    };
-  }
-  if (mode === "MARATHI") {
-    if (!marathiContent) return undefined;
-    return {
-      ...marathiContent,
-      languageMode: "MARATHI",
-      primaryLanguage: "mr",
-    };
-  }
-
-  const translations: Record<string, unknown> = {};
-  if (englishContent) translations.en = englishContent;
-  if (marathiContent) translations.mr = marathiContent;
-  if (!Object.keys(translations).length) return undefined;
-  return {
-    translations,
-    languageMode: "BILINGUAL",
-    primaryLanguage: "en",
-  };
-}
-
-function buildOptions(
-  values: QuestionFormValues,
-  type: QuestionType
-) {
-  if (type === "INTEGER" || type === "SHORT_ANSWER") {
-    return undefined;
-  }
-
-  const englishOptions = values.optionsEn.map((option) =>
-    buildContent(option.text, option.imageAssetId, option.html)
-  );
-  const marathiOptions = values.optionsMr.map((option) =>
-    buildContent(option.text, option.imageAssetId, option.html)
-  );
-
-  let options: Array<Record<string, unknown> | QuestionContentBlock> = [];
-
-  if (values.languageMode === "ENGLISH") {
-    options = englishOptions.map((option) => option ?? { text: "" });
-  } else if (values.languageMode === "MARATHI") {
-    options = marathiOptions.map((option) => option ?? { text: "" });
-  } else {
-    options = OPTION_LABELS.map((_, index) => {
-      const translations: Record<string, unknown> = {};
-      if (englishOptions[index]) translations.en = englishOptions[index];
-      if (marathiOptions[index]) translations.mr = marathiOptions[index];
-      if (Object.keys(translations).length) {
-        return { translations };
-      }
-      return { text: "" };
-    });
-  }
-
-  const hasAny = options.some((option) => {
-    if (!option || typeof option !== "object") return false;
-    const typed = option as Record<string, unknown>;
-    if (typed.translations && typeof typed.translations === "object") {
-      return Object.values(typed.translations).some((entry) => Boolean(entry));
-    }
-    return Boolean(
-      (typeof typed.text === "string" && typed.text.trim()) ||
-        (typeof typed.html === "string" && typed.html.trim()) ||
-        (typeof typed.imageAssetId === "string" && typed.imageAssetId.trim())
-    );
-  });
-  if (!hasAny) {
-    return undefined;
-  }
-
-  return {
-    options,
-    languageMode: values.languageMode,
-    primaryLanguage: values.languageMode === "MARATHI" ? "mr" : "en",
-  };
-}
-
 export function QuestionEditor({
   questionId,
   initialSubjectId,
@@ -426,9 +312,10 @@ export function QuestionEditor({
   const isEdit = Boolean(questionId);
 
   const [previewUrls, setPreviewUrls] = React.useState<Record<string, string | null>>({});
-  const [previewOpen, setPreviewOpen] = React.useState(false);
-  const [previewTitle, setPreviewTitle] = React.useState("Preview");
-  const [previewSrc, setPreviewSrc] = React.useState<string | null>(null);
+  const [questionPreviewOpen, setQuestionPreviewOpen] = React.useState(false);
+  const [mediaPreviewOpen, setMediaPreviewOpen] = React.useState(false);
+  const [mediaPreviewTitle, setMediaPreviewTitle] = React.useState("Preview");
+  const [mediaPreviewSrc, setMediaPreviewSrc] = React.useState<string | null>(null);
 
   const {
     data: question,
@@ -463,6 +350,10 @@ export function QuestionEditor({
       isPublished: false,
     },
   });
+  const previewValues = useWatch({
+    control: form.control,
+    defaultValue: form.getValues(),
+  }) as QuestionFormValues;
 
   const selectedSubjectId = form.watch("subjectId");
   const { data: topics } = useTopics(selectedSubjectId || undefined);
@@ -546,60 +437,9 @@ export function QuestionEditor({
   );
 
   const handleSubmit = async (values: QuestionFormValues, forcePublish = false) => {
-    const sharedStatementImageAssetId =
-      values.statementEn.imageAssetId || values.statementMr.imageAssetId || "";
-    const sharedExplanationImageAssetId =
-      values.explanationEn.imageAssetId || values.explanationMr.imageAssetId || "";
-    const sharedOptionImageAssetIds = OPTION_LABELS.map((_, index) => {
-      return values.optionsEn[index]?.imageAssetId || values.optionsMr[index]?.imageAssetId || "";
-    });
+    const payload = buildQuestionPayload(values);
 
-    const normalizedValues: QuestionFormValues = {
-      ...values,
-      statementEn: {
-        ...values.statementEn,
-        imageAssetId: sharedStatementImageAssetId,
-      },
-      statementMr: {
-        ...values.statementMr,
-        imageAssetId: sharedStatementImageAssetId,
-      },
-      explanationEn: {
-        ...values.explanationEn,
-        imageAssetId: sharedExplanationImageAssetId,
-      },
-      explanationMr: {
-        ...values.explanationMr,
-        imageAssetId: sharedExplanationImageAssetId,
-      },
-      optionsEn: values.optionsEn.map((option, index) => ({
-        ...option,
-        imageAssetId: sharedOptionImageAssetIds[index],
-      })),
-      optionsMr: values.optionsMr.map((option, index) => ({
-        ...option,
-        imageAssetId: sharedOptionImageAssetIds[index],
-      })),
-    };
-
-    const statementJson =
-      buildLocalizedContent(
-        normalizedValues.languageMode,
-        normalizedValues.statementEn,
-        normalizedValues.statementMr
-      ) ??
-      buildContent(
-        normalizedValues.statementEn.text,
-        normalizedValues.statementEn.imageAssetId,
-        normalizedValues.statementEn.html
-      ) ??
-      buildContent(
-        normalizedValues.statementMr.text,
-        normalizedValues.statementMr.imageAssetId,
-        normalizedValues.statementMr.html
-      );
-
-    if (!statementJson) {
+    if (!payload) {
       toast({
         title: "Save failed",
         description: "Question statement is required.",
@@ -608,28 +448,17 @@ export function QuestionEditor({
       return;
     }
 
-    const payload = {
-      subjectId: normalizedValues.subjectId,
-      topicId: normalizedValues.topicId || undefined,
-      type: normalizedValues.type,
-      difficulty: normalizedValues.difficulty || undefined,
-      statementJson,
-      optionsJson: buildOptions(normalizedValues, normalizedValues.type),
-      explanationJson: buildLocalizedContent(
-        normalizedValues.languageMode,
-        normalizedValues.explanationEn,
-        normalizedValues.explanationMr
-      ),
-      correctAnswerJson: buildCorrectAnswer(normalizedValues),
-      isPublished: forcePublish ? true : normalizedValues.isPublished ?? false,
-    };
-
     try {
+      const nextPayload = {
+        ...payload,
+        isPublished: forcePublish ? true : payload.isPublished ?? false,
+      };
+
       if (isEdit && questionId) {
-        await updateQuestion.mutateAsync({ questionId, input: payload });
+        await updateQuestion.mutateAsync({ questionId, input: nextPayload });
         toast({ title: "Question updated" });
       } else {
-        const created = await createQuestion.mutateAsync(payload);
+        const created = await createQuestion.mutateAsync(nextPayload);
         toast({ title: "Question created" });
         router.replace(`/admin/questions/${created.id}`);
       }
@@ -698,9 +527,9 @@ export function QuestionEditor({
   ].filter((item) => item.visible);
 
   const openPreview = (src: string, title: string) => {
-    setPreviewSrc(src);
-    setPreviewTitle(title);
-    setPreviewOpen(true);
+    setMediaPreviewSrc(src);
+    setMediaPreviewTitle(title);
+    setMediaPreviewOpen(true);
   };
 
   const statementImageAssetId =
@@ -783,7 +612,7 @@ export function QuestionEditor({
                       ) : null}
                     </div>
                     <div className="space-y-4">
-                      {OPTION_LABELS.map((label, index) => {
+                      {QUESTION_OPTION_LABELS.map((label, index) => {
                         const option = form.watch(
                           `${languageSection.optionsBase}.${index}` as Path<QuestionFormValues>
                         ) as LocalizedContentInput;
@@ -896,7 +725,7 @@ export function QuestionEditor({
                   </p>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
-                  {OPTION_LABELS.map((label, index) => {
+                  {QUESTION_OPTION_LABELS.map((label, index) => {
                     const previewKey = `option-shared-${index}-image`;
                     const optionImageAssetId =
                       form.watch(`optionsEn.${index}.imageAssetId`) ||
@@ -1025,7 +854,7 @@ export function QuestionEditor({
               <MultiSelectField
                 label="Correct Answers"
                 description="Select all correct options."
-                items={OPTION_LABELS.map((label, index) => ({
+                items={QUESTION_OPTION_LABELS.map((label, index) => ({
                   id: String(index),
                   label: `Option ${label}`,
                 }))}
@@ -1033,7 +862,7 @@ export function QuestionEditor({
                 onChange={(next) =>
                   form.setValue(
                     "correctOptionIndexes",
-                    next.map((value) => Number(value))
+                    sortQuestionOptionIndexes(next.map((value) => Number(value)))
                   )
                 }
                 emptyLabel="Add options to select answers."
@@ -1081,7 +910,7 @@ export function QuestionEditor({
                 }
               >
                 <option value="">Select answer</option>
-                {OPTION_LABELS.map((label, index) => (
+                {QUESTION_OPTION_LABELS.map((label, index) => (
                   <option key={label} value={index}>
                     Option {label}
                   </option>
@@ -1195,6 +1024,14 @@ export function QuestionEditor({
       )}
 
       <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setQuestionPreviewOpen(true)}
+        >
+          <Eye className="h-4 w-4" />
+          Preview Question
+        </Button>
         <Button type="submit" disabled={form.formState.isSubmitting}>
           {form.formState.isSubmitting
             ? "Saving..."
@@ -1221,17 +1058,23 @@ export function QuestionEditor({
         </Button>
       </div>
 
+      <QuestionPreviewModal
+        open={questionPreviewOpen}
+        onOpenChange={setQuestionPreviewOpen}
+        values={previewValues}
+      />
+
       <Modal
-        open={previewOpen}
-        onOpenChange={setPreviewOpen}
-        title={previewTitle}
+        open={mediaPreviewOpen}
+        onOpenChange={setMediaPreviewOpen}
+        title={mediaPreviewTitle}
         description="Preview the uploaded image."
         className="max-w-5xl"
       >
-        {previewSrc ? (
+        {mediaPreviewSrc ? (
           <img
-            src={previewSrc}
-            alt={previewTitle}
+            src={mediaPreviewSrc}
+            alt={mediaPreviewTitle}
             className="max-h-[75vh] w-full rounded-2xl border border-border object-contain"
           />
         ) : (

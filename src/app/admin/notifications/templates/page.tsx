@@ -20,9 +20,17 @@ import type { NotificationTemplate } from "@/modules/notifications/types";
 import {
   FormInput,
   FormSelect,
-  FormTextarea,
   FormSwitch,
 } from "@/modules/shared/components/FormField";
+import {
+  StringListEditor,
+  StructuredObjectEditor,
+} from "@/modules/shared/components/StructuredEditors";
+import {
+  buildStructuredRecord,
+  splitStructuredRecord,
+  type StructuredObjectEntry,
+} from "@/modules/shared/structured-data";
 
 function statusBadge(isActive?: boolean) {
   return (
@@ -60,62 +68,78 @@ export default function AdminNotificationTemplatesPage() {
   const [keyValue, setKeyValue] = React.useState("");
   const [templateChannel, setTemplateChannel] = React.useState("EMAIL");
   const [subject, setSubject] = React.useState("");
-  const [bodyJson, setBodyJson] = React.useState("{}");
-  const [variables, setVariables] = React.useState("");
+  const [messageText, setMessageText] = React.useState("");
+  const [messageHtml, setMessageHtml] = React.useState("");
+  const [variables, setVariables] = React.useState<string[]>([]);
   const [activeFlag, setActiveFlag] = React.useState(true);
+  const [bodyEntries, setBodyEntries] = React.useState<StructuredObjectEntry[]>([]);
+  const [bodyPreserved, setBodyPreserved] = React.useState<Record<string, unknown>>({});
+  const [bodyNotice, setBodyNotice] = React.useState("");
 
-  const sampleBodyByChannel: Record<string, string> = {
-    EMAIL: JSON.stringify(
-      { text: "Hello {{name}}, your payment is confirmed." },
-      null,
-      2
-    ),
-    SMS: JSON.stringify({ text: "Payment received. Thank you!" }, null, 2),
-    WHATSAPP: JSON.stringify(
-      { text: "Hi {{name}}, your plan is active now." },
-      null,
-      2
-    ),
+  const sampleBodyByChannel: Record<string, { text: string; html?: string }> = {
+    EMAIL: {
+      text: "Hello {{name}}, your payment is confirmed.",
+      html: "<p>Hello {{name}}, your payment is confirmed.</p>",
+    },
+    SMS: { text: "Payment received. Thank you!" },
+    WHATSAPP: { text: "Hi {{name}}, your plan is active now." },
   };
 
   const openEditor = (template?: NotificationTemplate | null) => {
     if (template) {
+      const bodyValue =
+        template.bodyJson && typeof template.bodyJson === "object" && !Array.isArray(template.bodyJson)
+          ? (template.bodyJson as Record<string, unknown>)
+          : typeof template.bodyJson === "string"
+            ? { text: template.bodyJson }
+            : {};
+      const { text, html, ...rest } = bodyValue;
+      const bodyState = splitStructuredRecord(rest);
+
       setActiveTemplate(template);
       setKeyValue(template.key);
       setTemplateChannel(template.channel);
       setSubject(template.subject || "");
-      setBodyJson(JSON.stringify(template.bodyJson ?? {}, null, 2));
-      setVariables((template.variablesJson || []).join(", "));
+      setMessageText(typeof text === "string" ? text : "");
+      setMessageHtml(typeof html === "string" ? html : "");
+      setVariables(
+        Array.isArray(template.variablesJson)
+          ? template.variablesJson.map((item) => String(item).trim()).filter(Boolean)
+          : []
+      );
+      setBodyEntries(bodyState.entries);
+      setBodyPreserved(bodyState.preserved);
+      setBodyNotice(
+        bodyState.hasUnsupported
+          ? "Some advanced body fields are preserved automatically but cannot be edited from this form."
+          : ""
+      );
       setActiveFlag(template.isActive ?? true);
     } else {
       setActiveTemplate(null);
       setKeyValue("");
       setTemplateChannel("EMAIL");
       setSubject("");
-      setBodyJson("{}");
-      setVariables("");
+      setMessageText("");
+      setMessageHtml("");
+      setVariables([]);
+      setBodyEntries([]);
+      setBodyPreserved({});
+      setBodyNotice("");
       setActiveFlag(true);
     }
     setEditorOpen(true);
   };
 
   const handleSubmit = async () => {
-    let parsedBody: Record<string, unknown>;
-    try {
-      parsedBody = JSON.parse(bodyJson || "{}") as Record<string, unknown>;
-    } catch {
-      toast({
-        title: "Invalid body JSON",
-        description: "Body JSON must be valid JSON.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const parsedBody = buildStructuredRecord(bodyEntries, bodyPreserved);
+    const bodyJson = {
+      ...parsedBody,
+      ...(messageText.trim() ? { text: messageText.trim() } : {}),
+      ...(messageHtml.trim() ? { html: messageHtml.trim() } : {}),
+    };
 
-    const variablesJson = variables
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
+    const variablesJson = variables.map((item) => item.trim()).filter(Boolean);
 
     try {
       if (activeTemplate) {
@@ -124,7 +148,7 @@ export default function AdminNotificationTemplatesPage() {
           payload: {
             channel: templateChannel,
             subject: subject || undefined,
-            bodyJson: parsedBody,
+            bodyJson,
             variablesJson: variablesJson.length ? variablesJson : undefined,
             isActive: activeFlag,
           },
@@ -135,7 +159,7 @@ export default function AdminNotificationTemplatesPage() {
           key: keyValue.trim(),
           channel: templateChannel,
           subject: subject || undefined,
-          bodyJson: parsedBody,
+          bodyJson,
           variablesJson: variablesJson.length ? variablesJson : undefined,
           isActive: activeFlag,
         });
@@ -301,20 +325,43 @@ export default function AdminNotificationTemplatesPage() {
             value={subject}
             onChange={(event) => setSubject(event.target.value)}
           />
-          <FormTextarea
-            label="Body JSON"
-            placeholder='{"text":"Hello {{name}}"}'
-            value={bodyJson}
-            onChange={(event) => setBodyJson(event.target.value)}
+          <FormInput
+            label="Message Text"
+            placeholder="Hello {{name}}"
+            value={messageText}
+            onChange={(event) => setMessageText(event.target.value)}
+          />
+          {templateChannel === "EMAIL" ? (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Email HTML (optional)</label>
+              <textarea
+                className="min-h-[140px] w-full rounded-2xl border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                placeholder="<p>Hello {{name}}</p>"
+                value={messageHtml}
+                onChange={(event) => setMessageHtml(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave this empty to use plain text only.
+              </p>
+            </div>
+          ) : null}
+          <StructuredObjectEditor
+            label="Additional Body Fields"
+            description="Optional extra values for advanced templates."
+            entries={bodyEntries}
+            onChange={setBodyEntries}
+            preserveNotice={bodyNotice}
           />
           <div className="flex flex-wrap gap-2">
             <Button
               variant="secondary"
               size="sm"
               type="button"
-              onClick={() =>
-                setBodyJson(sampleBodyByChannel[templateChannel] || "{}")
-              }
+              onClick={() => {
+                const sample = sampleBodyByChannel[templateChannel] || { text: "" };
+                setMessageText(sample.text);
+                setMessageHtml(sample.html || "");
+              }}
             >
               Use sample body
             </Button>
@@ -322,11 +369,13 @@ export default function AdminNotificationTemplatesPage() {
               Tip: keep it short and simple. Variables use {"{{variableName}}"}.
             </p>
           </div>
-          <FormInput
+          <StringListEditor
             label="Variables"
-            placeholder="name, planName"
-            value={variables}
-            onChange={(event) => setVariables(event.target.value)}
+            description="Add the variable names this template expects."
+            values={variables}
+            onChange={setVariables}
+            itemLabel="Variable"
+            addLabel="Add variable"
           />
           <FormSwitch
             label="Active"

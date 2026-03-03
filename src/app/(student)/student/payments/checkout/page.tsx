@@ -11,11 +11,19 @@ import { formatCurrency, storePaymentContext } from "@/modules/student-payments/
 import { trackStudentEvent } from "@/modules/student-analytics/events";
 
 function normalizeFeatures(features: unknown): string[] {
+  if (features && typeof features === "object" && !Array.isArray(features)) {
+    const explicitList = (features as Record<string, unknown>).featureList;
+    if (Array.isArray(explicitList)) {
+      return explicitList.map((item) => String(item).trim()).filter(Boolean);
+    }
+  }
   if (Array.isArray(features)) {
-    return features.map((item) => String(item));
+    return features.map((item) => String(item).trim()).filter(Boolean);
   }
   if (features && typeof features === "object") {
-    return Object.values(features as Record<string, unknown>).map((item) => String(item));
+    return Object.values(features as Record<string, unknown>)
+      .map((item) => String(item).trim())
+      .filter(Boolean);
   }
   return [];
 }

@@ -20,11 +20,17 @@ import {
   useUser,
 } from "@/modules/users/hooks";
 import { FormInput, FormSelect, FormTextarea } from "@/modules/shared/components/FormField";
+import { EntitlementScopeEditor } from "@/modules/shared/components/EntitlementEditors";
 import { Modal } from "@/modules/shared/components/Modal";
 import { MultiSelectField } from "@/modules/shared/components/MultiSelect";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
 import { ErrorState, LoadingState } from "@/modules/shared/components/States";
 import { useToast } from "@/modules/shared/components/Toast";
+import {
+  buildEntitlementScope,
+  createEmptyEntitlementScope,
+  type EditableEntitlementScope,
+} from "@/modules/shared/entitlements";
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -79,7 +85,9 @@ export default function AdminUserDetailPage() {
   const [entitlementMode, setEntitlementMode] = React.useState<"grant" | "revoke">("grant");
   const [entitlementKind, setEntitlementKind] = React.useState("");
   const [entitlementReason, setEntitlementReason] = React.useState("");
-  const [entitlementScope, setEntitlementScope] = React.useState("");
+  const [entitlementScope, setEntitlementScope] = React.useState<EditableEntitlementScope>(
+    createEmptyEntitlementScope()
+  );
   const [entitlementStartsAt, setEntitlementStartsAt] = React.useState("");
   const [entitlementEndsAt, setEntitlementEndsAt] = React.useState("");
 
@@ -247,24 +255,12 @@ export default function AdminUserDetailPage() {
       return;
     }
 
-    let parsedScope: Record<string, unknown> | undefined;
-    if (entitlementScope.trim()) {
-      try {
-        parsedScope = JSON.parse(entitlementScope) as Record<string, unknown>;
-      } catch {
-        toast({
-          title: "Invalid scope JSON",
-          description: "Scope must be valid JSON.",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
+    const parsedScope = buildEntitlementScope(entitlementScope);
 
     const payload: EntitlementPayload = {
       kind: entitlementKind,
       reason: entitlementReason || undefined,
-      scopeJson: parsedScope,
+      scopeJson: Object.keys(parsedScope).length ? parsedScope : undefined,
       startsAt: entitlementStartsAt || undefined,
       endsAt: entitlementEndsAt || undefined,
     };
@@ -280,7 +276,7 @@ export default function AdminUserDetailPage() {
       setEntitlementOpen(false);
       setEntitlementKind("");
       setEntitlementReason("");
-      setEntitlementScope("");
+      setEntitlementScope(createEmptyEntitlementScope());
       setEntitlementStartsAt("");
       setEntitlementEndsAt("");
     } catch (err) {
@@ -581,29 +577,37 @@ export default function AdminUserDetailPage() {
 
       <Modal
         open={entitlementOpen}
-        onOpenChange={setEntitlementOpen}
+        onOpenChange={(open) => {
+          setEntitlementOpen(open);
+          if (!open) {
+            setEntitlementKind("");
+            setEntitlementReason("");
+            setEntitlementScope(createEmptyEntitlementScope());
+            setEntitlementStartsAt("");
+            setEntitlementEndsAt("");
+          }
+        }}
         title={entitlementMode === "grant" ? "Grant Entitlement" : "Revoke Entitlement"}
         description="Manage user entitlements and access."
       >
         <div className="space-y-4">
-          <FormInput
+          <FormSelect
             label="Entitlement Kind"
-            placeholder="NOTES or ALL"
             value={entitlementKind}
             onChange={(event) => setEntitlementKind(event.target.value)}
+          >
+            <option value="">Select access type</option>
+            <option value="ALL">All</option>
+            <option value="NOTES">Notes</option>
+            <option value="TESTS">Tests</option>
+            <option value="PRACTICE">Practice</option>
+          </FormSelect>
+          <EntitlementScopeEditor
+            label="Scope"
+            description="Leave all lists empty to apply the entitlement globally."
+            scope={entitlementScope}
+            onChange={setEntitlementScope}
           />
-          <p className="text-xs text-muted-foreground">
-            Allowed kinds are based on backend enum values.
-          </p>
-          <FormTextarea
-            label="Scope JSON"
-            placeholder='{"subjectId":"..."}'
-            value={entitlementScope}
-            onChange={(event) => setEntitlementScope(event.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Leave scope empty if entitlement applies globally.
-          </p>
           <FormInput
             label="Reason"
             placeholder="Optional reason"

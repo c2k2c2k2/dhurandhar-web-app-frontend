@@ -161,6 +161,13 @@ function mapPublicPlanToPricingPlan(raw: PublicPlan): PricingPlan | null {
 }
 
 function normalizeFeatures(features: unknown): string[] {
+  if (features && typeof features === "object" && !Array.isArray(features)) {
+    const explicitList = (features as Record<string, unknown>).featureList;
+    if (Array.isArray(explicitList)) {
+      return explicitList.map((item) => String(item).trim()).filter(Boolean).slice(0, 4);
+    }
+  }
+
   if (Array.isArray(features)) {
     return features.map((item) => String(item).trim()).filter(Boolean).slice(0, 4);
   }

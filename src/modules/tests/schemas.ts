@@ -15,7 +15,6 @@ export const TestFormSchema = z
     mixerDifficulty: z.enum(["EASY", "MEDIUM", "HARD"]).optional(),
     mixerTopicIds: z.array(z.string()).optional(),
     questionIdsText: z.string().optional(),
-    sectionsJson: z.string().optional(),
     durationMinutes: z.number().int().positive().optional(),
     marksPerQuestion: z.number().positive().optional(),
     negativeMarksPerWrong: z.number().min(0).optional(),
@@ -47,25 +46,6 @@ export const TestFormSchema = z
           code: z.ZodIssueCode.custom,
           path: ["mixerCount"],
           message: "Mixer count must be greater than 0.",
-        });
-      }
-    }
-
-    if (values.sectionsJson?.trim()) {
-      try {
-        const parsed = JSON.parse(values.sectionsJson);
-        if (!Array.isArray(parsed)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["sectionsJson"],
-            message: "Sections JSON must be an array.",
-          });
-        }
-      } catch {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["sectionsJson"],
-          message: "Sections JSON is invalid.",
         });
       }
     }

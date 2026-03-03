@@ -11,8 +11,16 @@ import { Modal } from "@/modules/shared/components/Modal";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
 import { ErrorState, LoadingState } from "@/modules/shared/components/States";
 import { DataTable, type DataTableColumn } from "@/modules/shared/components/DataTable";
-import { FormInput, FormSwitch, FormTextarea } from "@/modules/shared/components/FormField";
+import { FormInput, FormSwitch } from "@/modules/shared/components/FormField";
 import { CmsSubNav } from "@/modules/cms/components/CmsSubNav";
+import { useSubjects } from "@/modules/taxonomy/subjects/hooks";
+import { useTopics } from "@/modules/taxonomy/topics/hooks";
+import { StringListEditor, StructuredObjectEditor } from "@/modules/shared/components/StructuredEditors";
+import {
+  buildStructuredRecord,
+  splitStructuredRecord,
+  type StructuredObjectEntry,
+} from "@/modules/shared/structured-data";
 import {
   useCreateHomeSection,
   useHomeSections,
@@ -26,7 +34,6 @@ const HomeSectionSchema = z.object({
   type: z.string().min(2, "Type is required."),
   orderIndex: z.number().int().optional(),
   isActive: z.boolean().optional(),
-  configText: z.string().min(2, "Config JSON is required."),
 });
 
 type HomeSectionFormValues = z.infer<typeof HomeSectionSchema>;
@@ -44,7 +51,16 @@ function HomeSectionEditorModal({
   onSave: (payload: HomeSectionCreateInput) => Promise<void>;
   saving: boolean;
 }) {
-  const [configError, setConfigError] = React.useState<string | undefined>();
+  const { data: subjects } = useSubjects();
+  const [title, setTitle] = React.useState("");
+  const [subtitle, setSubtitle] = React.useState("");
+  const [subjectId, setSubjectId] = React.useState("");
+  const [topicId, setTopicId] = React.useState("");
+  const [limit, setLimit] = React.useState("");
+  const [noteIds, setNoteIds] = React.useState<string[]>([]);
+  const [extraEntries, setExtraEntries] = React.useState<StructuredObjectEntry[]>([]);
+  const [extraPreserved, setExtraPreserved] = React.useState<Record<string, unknown>>({});
+  const [extraNotice, setExtraNotice] = React.useState("");
 
   const form = useForm<HomeSectionFormValues>({
     resolver: zodResolver(HomeSectionSchema),
@@ -52,34 +68,71 @@ function HomeSectionEditorModal({
       type: initial?.type || "",
       orderIndex: initial?.orderIndex ?? undefined,
       isActive: initial?.isActive ?? true,
-      configText: initial?.configJson
-        ? JSON.stringify(initial.configJson, null, 2)
-        : "{\n  \n}",
     },
   });
 
+  const selectedSubjectId = subjectId || undefined;
+  const { data: topics } = useTopics(selectedSubjectId);
+
   React.useEffect(() => {
     if (!open) return;
+    const config = initial?.configJson ?? {};
+    const reservedKeys = ["title", "subtitle", "subjectId", "topicId", "limit", "noteIds"];
+    const extraState = splitStructuredRecord(config, reservedKeys);
+
     form.reset({
       type: initial?.type || "",
       orderIndex: initial?.orderIndex ?? undefined,
       isActive: initial?.isActive ?? true,
-      configText: initial?.configJson
-        ? JSON.stringify(initial.configJson, null, 2)
-        : "{\n  \n}",
     });
-    setConfigError(undefined);
+    setTitle(typeof config.title === "string" ? config.title : "");
+    setSubtitle(typeof config.subtitle === "string" ? config.subtitle : "");
+    setSubjectId(typeof config.subjectId === "string" ? config.subjectId : "");
+    setTopicId(typeof config.topicId === "string" ? config.topicId : "");
+    setLimit(
+      typeof config.limit === "number" && Number.isFinite(config.limit)
+        ? String(config.limit)
+        : ""
+    );
+    setNoteIds(
+      Array.isArray(config.noteIds)
+        ? config.noteIds.map((item) => String(item).trim()).filter(Boolean)
+        : []
+    );
+    setExtraEntries(extraState.entries);
+    setExtraPreserved(extraState.preserved);
+    setExtraNotice(
+      extraState.hasUnsupported
+        ? "Some advanced section settings are preserved automatically but cannot be edited from this form."
+        : ""
+    );
   }, [open, initial, form]);
 
   const handleSubmit = async (values: HomeSectionFormValues) => {
-    let configJson: Record<string, unknown>;
-    try {
-      configJson = JSON.parse(values.configText);
-    } catch {
-      setConfigError("Config JSON must be valid.");
-      return;
+    const configJson = buildStructuredRecord(extraEntries, extraPreserved);
+    if (title.trim()) {
+      configJson.title = title.trim();
     }
-    setConfigError(undefined);
+    if (subtitle.trim()) {
+      configJson.subtitle = subtitle.trim();
+    }
+    if (subjectId.trim()) {
+      configJson.subjectId = subjectId.trim();
+    }
+    if (topicId.trim()) {
+      configJson.topicId = topicId.trim();
+    }
+    if (limit.trim()) {
+      const parsedLimit = Number(limit);
+      if (Number.isFinite(parsedLimit) && parsedLimit > 0) {
+        configJson.limit = Math.round(parsedLimit);
+      }
+    }
+    const cleanNoteIds = noteIds.map((item) => item.trim()).filter(Boolean);
+    if (cleanNoteIds.length) {
+      configJson.noteIds = cleanNoteIds;
+    }
+
     await onSave({
       type: values.type,
       configJson,
@@ -104,12 +157,78 @@ function HomeSectionEditorModal({
           error={form.formState.errors.type?.message}
           {...form.register("type")}
         />
-        <FormTextarea
-          label="Config JSON"
-          description="Paste the JSON configuration for this section. If unsure, start with {}."
-          error={form.formState.errors.configText?.message || configError}
-          className="font-mono text-xs"
-          {...form.register("configText")}
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormInput
+            label="Display Title"
+            placeholder="Optional section title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+          <FormInput
+            label="Display Subtitle"
+            placeholder="Optional section subtitle"
+            value={subtitle}
+            onChange={(event) => setSubtitle(event.target.value)}
+          />
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Subject Filter</label>
+            <select
+              className="flex h-10 w-full rounded-2xl border border-input bg-background px-3 py-2 text-sm text-foreground"
+              value={subjectId}
+              onChange={(event) => {
+                setSubjectId(event.target.value);
+                setTopicId("");
+              }}
+            >
+              <option value="">All subjects</option>
+              {(subjects || []).map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name || subject.title || "Untitled"}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Topic Filter</label>
+            <select
+              className="flex h-10 w-full rounded-2xl border border-input bg-background px-3 py-2 text-sm text-foreground"
+              value={topicId}
+              onChange={(event) => setTopicId(event.target.value)}
+              disabled={!subjectId}
+            >
+              <option value="">All topics</option>
+              {(topics || []).map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {topic.name || topic.title || "Untitled"}
+                </option>
+              ))}
+            </select>
+          </div>
+          <FormInput
+            label="Item Limit"
+            type="number"
+            min="1"
+            placeholder="Optional"
+            value={limit}
+            onChange={(event) => setLimit(event.target.value)}
+          />
+        </div>
+        <StringListEditor
+          label="Fixed Note IDs"
+          description="Optional. Add note ids only if this section should show exact notes."
+          values={noteIds}
+          onChange={setNoteIds}
+          itemLabel="Note ID"
+          addLabel="Add note ID"
+        />
+        <StructuredObjectEditor
+          label="Additional Section Settings"
+          description="Optional extra settings for advanced section types."
+          entries={extraEntries}
+          onChange={setExtraEntries}
+          preserveNotice={extraNotice}
         />
         <div className="grid gap-4 md:grid-cols-2">
           <FormInput
@@ -193,7 +312,7 @@ export default function AdminCmsHomeSectionsPage() {
     }
   };
 
-  const handleMove = async (sectionId: string, direction: "up" | "down") => {
+  const handleMove = React.useCallback(async (sectionId: string, direction: "up" | "down") => {
     const index = sections.findIndex((section) => section.id === sectionId);
     if (index < 0) return;
     const targetIndex = direction === "up" ? index - 1 : index + 1;
@@ -221,7 +340,7 @@ export default function AdminCmsHomeSectionsPage() {
         variant: "destructive",
       });
     }
-  };
+  }, [reorderSections, sections, toast]);
 
   const columns = React.useMemo<DataTableColumn<HomeSection>[]>(
     () => [
@@ -287,7 +406,7 @@ export default function AdminCmsHomeSectionsPage() {
         ),
       },
     ],
-    [sections]
+    [handleMove, sections]
   );
 
   return (

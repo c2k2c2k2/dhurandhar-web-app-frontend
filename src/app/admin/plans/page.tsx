@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Can, RequirePerm } from "@/lib/auth/guards";
 import {
   useAdminPlans,
@@ -20,9 +19,24 @@ import {
   DataTable,
   type DataTableColumn,
 } from "@/modules/shared/components/DataTable";
-import { FormInput, FormSelect, FormTextarea } from "@/modules/shared/components/FormField";
+import { FormInput, FormSelect } from "@/modules/shared/components/FormField";
+import { EntitlementRulesEditor } from "@/modules/shared/components/EntitlementEditors";
 import { Modal } from "@/modules/shared/components/Modal";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
+import {
+  StringListEditor,
+  StructuredObjectEditor,
+} from "@/modules/shared/components/StructuredEditors";
+import {
+  buildPlanFeaturesConfig,
+  parsePlanFeaturesConfig,
+  type EditableEntitlementRule,
+} from "@/modules/shared/entitlements";
+import {
+  buildStructuredRecord,
+  splitStructuredRecord,
+  type StructuredObjectEntry,
+} from "@/modules/shared/structured-data";
 import { useToast } from "@/modules/shared/components/Toast";
 
 function formatCurrency(paise?: number) {
@@ -41,20 +55,6 @@ function formatDate(value?: string) {
   });
 }
 
-function parseJson(text: string, field: string) {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  const parsed = JSON.parse(trimmed) as unknown;
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error(`${field} must be a valid JSON object.`);
-  }
-
-  return parsed as Record<string, unknown>;
-}
-
 type PlanFormState = {
   key: string;
   name: string;
@@ -63,8 +63,6 @@ type PlanFormState = {
   durationUnit: PlanDurationUnit;
   durationValue: string;
   isActive: boolean;
-  metadataText: string;
-  featuresText: string;
 };
 
 const EMPTY_FORM: PlanFormState = {
@@ -75,8 +73,6 @@ const EMPTY_FORM: PlanFormState = {
   durationUnit: "MONTHS",
   durationValue: "1",
   isActive: true,
-  metadataText: "{}",
-  featuresText: "{}",
 };
 
 function mapPlanToForm(plan: AdminPlan): PlanFormState {
@@ -101,8 +97,6 @@ function mapPlanToForm(plan: AdminPlan): PlanFormState {
     durationUnit: unit,
     durationValue: value,
     isActive: plan.isActive,
-    metadataText: JSON.stringify(plan.metadataJson ?? {}, null, 2),
-    featuresText: JSON.stringify(plan.featuresJson ?? {}, null, 2),
   };
 }
 
@@ -113,6 +107,13 @@ export default function AdminPlansPage() {
   const [open, setOpen] = React.useState(false);
   const [editingPlan, setEditingPlan] = React.useState<AdminPlan | null>(null);
   const [form, setForm] = React.useState<PlanFormState>(EMPTY_FORM);
+  const [metadataEntries, setMetadataEntries] = React.useState<StructuredObjectEntry[]>([]);
+  const [metadataPreserved, setMetadataPreserved] = React.useState<Record<string, unknown>>({});
+  const [metadataNotice, setMetadataNotice] = React.useState<string>("");
+  const [featureList, setFeatureList] = React.useState<string[]>([]);
+  const [entitlementRules, setEntitlementRules] = React.useState<EditableEntitlementRule[]>([]);
+  const [featuresPreserved, setFeaturesPreserved] = React.useState<Record<string, unknown>>({});
+  const [featuresNotice, setFeaturesNotice] = React.useState<string>("");
 
   const pageSize = 20;
   const query = {
@@ -128,12 +129,36 @@ export default function AdminPlansPage() {
   const openCreate = () => {
     setEditingPlan(null);
     setForm(EMPTY_FORM);
+    setMetadataEntries([]);
+    setMetadataPreserved({});
+    setMetadataNotice("");
+    setFeatureList([]);
+    setEntitlementRules([]);
+    setFeaturesPreserved({});
+    setFeaturesNotice("");
     setOpen(true);
   };
 
   const openEdit = (plan: AdminPlan) => {
+    const metadataState = splitStructuredRecord(plan.metadataJson ?? {});
+    const featuresState = parsePlanFeaturesConfig(plan.featuresJson);
     setEditingPlan(plan);
     setForm(mapPlanToForm(plan));
+    setMetadataEntries(metadataState.entries);
+    setMetadataPreserved(metadataState.preserved);
+    setMetadataNotice(
+      metadataState.hasUnsupported
+        ? "Some advanced metadata fields are preserved automatically but cannot be edited from this form."
+        : ""
+    );
+    setFeatureList(featuresState.featureList);
+    setEntitlementRules(featuresState.entitlements);
+    setFeaturesPreserved(featuresState.preserved);
+    setFeaturesNotice(
+      featuresState.hasUnsupported
+        ? "Some advanced feature settings are preserved automatically but cannot be edited from this form."
+        : ""
+    );
     setOpen(true);
   };
 
@@ -182,27 +207,21 @@ export default function AdminPlansPage() {
       }
     }
 
-    let payload: AdminPlanInput | AdminPlanUpdateInput;
-    try {
-      payload = {
-        key,
-        name,
-        tier: form.tier.trim() || undefined,
-        pricePaise: Math.round(price * 100),
-        durationUnit: form.durationUnit,
-        durationValue,
-        isActive: form.isActive,
-        metadataJson: parseJson(form.metadataText, "Metadata"),
-        featuresJson: parseJson(form.featuresText, "Features"),
-      };
-    } catch (err) {
-      toast({
-        title: "Invalid JSON",
-        description: err instanceof Error ? err.message : "Invalid JSON payload.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const payload: AdminPlanInput | AdminPlanUpdateInput = {
+      key,
+      name,
+      tier: form.tier.trim() || undefined,
+      pricePaise: Math.round(price * 100),
+      durationUnit: form.durationUnit,
+      durationValue,
+      isActive: form.isActive,
+      metadataJson: buildStructuredRecord(metadataEntries, metadataPreserved),
+      featuresJson: buildPlanFeaturesConfig({
+        featureList,
+        entitlements: entitlementRules,
+        preserved: featuresPreserved,
+      }),
+    };
 
     try {
       if (editingPlan) {
@@ -452,24 +471,31 @@ export default function AdminPlansPage() {
               Active
             </label>
             <div className="md:col-span-2">
-              <FormTextarea
-                label="Metadata JSON"
-                value={form.metadataText}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, metadataText: event.target.value }))
-                }
-                className="min-h-[120px]"
+              <StringListEditor
+                label="Plan Highlights"
+                description="Add short feature points shown to admins and students."
+                values={featureList}
+                onChange={setFeatureList}
+                itemLabel="Feature"
+                addLabel="Add feature"
               />
             </div>
             <div className="md:col-span-2">
-              <FormTextarea
-                label="Features JSON"
-                description='Use this for entitlement boundaries. Example: {"entitlements":[{"kind":"NOTES"}]}'
-                value={form.featuresText}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, featuresText: event.target.value }))
-                }
-                className="min-h-[140px]"
+              <EntitlementRulesEditor
+                label="Access Rules"
+                description="Choose what access this plan should grant after activation."
+                rules={entitlementRules}
+                onChange={setEntitlementRules}
+                preserveNotice={featuresNotice}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <StructuredObjectEditor
+                label="Additional Plan Metadata"
+                description="Optional extra settings for internal use."
+                entries={metadataEntries}
+                onChange={setMetadataEntries}
+                preserveNotice={metadataNotice}
               />
             </div>
           </form>

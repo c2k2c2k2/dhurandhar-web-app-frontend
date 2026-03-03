@@ -19,9 +19,15 @@ import {
   DataTable,
   type DataTableColumn,
 } from "@/modules/shared/components/DataTable";
-import { FormInput, FormSelect, FormTextarea } from "@/modules/shared/components/FormField";
+import { FormInput, FormSelect } from "@/modules/shared/components/FormField";
 import { Modal } from "@/modules/shared/components/Modal";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
+import { StructuredObjectEditor } from "@/modules/shared/components/StructuredEditors";
+import {
+  buildStructuredRecord,
+  splitStructuredRecord,
+  type StructuredObjectEntry,
+} from "@/modules/shared/structured-data";
 import { useToast } from "@/modules/shared/components/Toast";
 
 function formatDate(value?: string | null) {
@@ -42,16 +48,6 @@ function formatCouponValue(type: CouponType, value: number) {
   return `INR ${(value / 100).toFixed(2)}`;
 }
 
-function parseJson(text: string) {
-  const trimmed = text.trim();
-  if (!trimmed) return undefined;
-  const parsed = JSON.parse(trimmed) as unknown;
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Metadata must be a JSON object.");
-  }
-  return parsed as Record<string, unknown>;
-}
-
 type CouponFormState = {
   code: string;
   type: CouponType;
@@ -62,7 +58,6 @@ type CouponFormState = {
   startsAt: string;
   endsAt: string;
   isActive: boolean;
-  metadataText: string;
 };
 
 const EMPTY_FORM: CouponFormState = {
@@ -75,7 +70,6 @@ const EMPTY_FORM: CouponFormState = {
   startsAt: "",
   endsAt: "",
   isActive: true,
-  metadataText: "{}",
 };
 
 function toDateTimeLocal(value?: string | null) {
@@ -119,7 +113,6 @@ function mapCouponToForm(coupon: AdminCoupon): CouponFormState {
     startsAt: toDateTimeLocal(coupon.startsAt),
     endsAt: toDateTimeLocal(coupon.endsAt),
     isActive: coupon.isActive,
-    metadataText: JSON.stringify(coupon.metadataJson ?? {}, null, 2),
   };
 }
 
@@ -132,6 +125,9 @@ export default function AdminCouponsPage() {
     null,
   );
   const [form, setForm] = React.useState<CouponFormState>(EMPTY_FORM);
+  const [metadataEntries, setMetadataEntries] = React.useState<StructuredObjectEntry[]>([]);
+  const [metadataPreserved, setMetadataPreserved] = React.useState<Record<string, unknown>>({});
+  const [metadataNotice, setMetadataNotice] = React.useState("");
 
   const pageSize = 20;
   const query = {
@@ -147,12 +143,23 @@ export default function AdminCouponsPage() {
   const openCreate = () => {
     setEditingCoupon(null);
     setForm(EMPTY_FORM);
+    setMetadataEntries([]);
+    setMetadataPreserved({});
+    setMetadataNotice("");
     setOpen(true);
   };
 
   const openEdit = (coupon: AdminCoupon) => {
+    const metadataState = splitStructuredRecord(coupon.metadataJson ?? {});
     setEditingCoupon(coupon);
     setForm(mapCouponToForm(coupon));
+    setMetadataEntries(metadataState.entries);
+    setMetadataPreserved(metadataState.preserved);
+    setMetadataNotice(
+      metadataState.hasUnsupported
+        ? "Some advanced metadata fields are preserved automatically but cannot be edited from this form."
+        : ""
+    );
     setOpen(true);
   };
 
@@ -191,37 +198,27 @@ export default function AdminCouponsPage() {
     const maxRedemptions = Number(form.maxRedemptions.trim());
     const maxRedemptionsPerUser = Number(form.maxRedemptionsPerUser.trim());
 
-    let payload: AdminCouponInput | AdminCouponUpdateInput;
-    try {
-      payload = {
-        code,
-        type: form.type,
-        value: form.type === "PERCENT" ? Math.round(value) : Math.round(value * 100),
-        minAmountPaise:
-          Number.isFinite(minAmountRupees) && minAmountRupees > 0
-            ? Math.round(minAmountRupees * 100)
-            : undefined,
-        maxRedemptions:
-          Number.isFinite(maxRedemptions) && maxRedemptions > 0
-            ? Math.round(maxRedemptions)
-            : undefined,
-        maxRedemptionsPerUser:
-          Number.isFinite(maxRedemptionsPerUser) && maxRedemptionsPerUser > 0
-            ? Math.round(maxRedemptionsPerUser)
-            : undefined,
-        startsAt: toIso(form.startsAt),
-        endsAt: toIso(form.endsAt),
-        isActive: form.isActive,
-        metadataJson: parseJson(form.metadataText),
-      };
-    } catch (err) {
-      toast({
-        title: "Invalid JSON",
-        description: err instanceof Error ? err.message : "Invalid metadata JSON.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const payload: AdminCouponInput | AdminCouponUpdateInput = {
+      code,
+      type: form.type,
+      value: form.type === "PERCENT" ? Math.round(value) : Math.round(value * 100),
+      minAmountPaise:
+        Number.isFinite(minAmountRupees) && minAmountRupees > 0
+          ? Math.round(minAmountRupees * 100)
+          : undefined,
+      maxRedemptions:
+        Number.isFinite(maxRedemptions) && maxRedemptions > 0
+          ? Math.round(maxRedemptions)
+          : undefined,
+      maxRedemptionsPerUser:
+        Number.isFinite(maxRedemptionsPerUser) && maxRedemptionsPerUser > 0
+          ? Math.round(maxRedemptionsPerUser)
+          : undefined,
+      startsAt: toIso(form.startsAt),
+      endsAt: toIso(form.endsAt),
+      isActive: form.isActive,
+      metadataJson: buildStructuredRecord(metadataEntries, metadataPreserved),
+    };
 
     try {
       if (editingCoupon) {
@@ -489,13 +486,12 @@ export default function AdminCouponsPage() {
               Active
             </label>
             <div className="md:col-span-2">
-              <FormTextarea
-                label="Metadata JSON"
-                value={form.metadataText}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, metadataText: event.target.value }))
-                }
-                className="min-h-[120px]"
+              <StructuredObjectEditor
+                label="Additional Coupon Metadata"
+                description="Optional extra settings for internal use."
+                entries={metadataEntries}
+                onChange={setMetadataEntries}
+                preserveNotice={metadataNotice}
               />
             </div>
           </form>

@@ -10,8 +10,16 @@ import {
   usePublishConfig,
 } from "@/modules/cms/hooks";
 import type { AppConfig } from "@/modules/cms/types";
-import { FormSelect, FormTextarea } from "@/modules/shared/components/FormField";
+import { FormSelect } from "@/modules/shared/components/FormField";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
+import { useSubjects } from "@/modules/taxonomy/subjects/hooks";
+import {
+  buildPresetsFromEditor,
+  mapPresetsToEditor,
+  TestPresetsEditor,
+  type EditableTestPreset,
+} from "@/modules/tests/components/TestSectionsEditor";
+import { splitPresetConfig } from "@/modules/shared/structured-data";
 import { useToast } from "@/modules/shared/components/Toast";
 
 const LANGUAGES = [
@@ -64,6 +72,7 @@ export default function AdminCmsSettingsPage() {
   const latestLanguagePublished = getLatestPublished(languageConfigs);
   const latestPreset = getLatest(presetConfigs);
   const latestPresetPublished = getLatestPublished(presetConfigs);
+  const { data: subjects } = useSubjects();
 
   const [enabledLanguages, setEnabledLanguages] = React.useState<LanguageKey[]>([
     "en",
@@ -71,7 +80,8 @@ export default function AdminCmsSettingsPage() {
     "mr",
   ]);
   const [defaultLanguage, setDefaultLanguage] = React.useState<LanguageKey>("en");
-  const [presetText, setPresetText] = React.useState<string>("{\n  \"presets\": []\n}");
+  const [presetEntries, setPresetEntries] = React.useState<EditableTestPreset[]>([]);
+  const [presetPreserved, setPresetPreserved] = React.useState<Record<string, unknown>>({});
 
   React.useEffect(() => {
     const source = getConfigJson(latestLanguagePublished ?? latestLanguage);
@@ -96,9 +106,9 @@ export default function AdminCmsSettingsPage() {
 
   React.useEffect(() => {
     const source = getConfigJson(latestPresetPublished ?? latestPreset);
-    if (Object.keys(source).length) {
-      setPresetText(JSON.stringify(source, null, 2));
-    }
+    const presetState = splitPresetConfig(source);
+    setPresetEntries(mapPresetsToEditor(presetState.presets as Parameters<typeof mapPresetsToEditor>[0]));
+    setPresetPreserved(presetState.preserved);
   }, [latestPreset, latestPresetPublished]);
 
   const toggleLanguage = (key: LanguageKey) => {
@@ -142,22 +152,22 @@ export default function AdminCmsSettingsPage() {
 
   const savePresetDraft = async () => {
     try {
-      const parsed = JSON.parse(presetText) as Record<string, unknown>;
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        throw new Error("Preset config must be a JSON object.");
-      }
+      const presets = buildPresetsFromEditor(presetEntries);
       await createConfig.mutateAsync({
         key: "test.presets",
-        configJson: parsed,
+        configJson: {
+          ...presetPreserved,
+          presets,
+        },
       });
       toast({ title: "Test preset draft created" });
     } catch (err) {
       toast({
-        title: "Invalid preset JSON",
+        title: "Unable to save preset settings",
         description:
           err instanceof Error
             ? err.message
-            : "Unable to parse preset configuration.",
+            : "Unable to save preset configuration.",
         variant: "destructive",
       });
     }
@@ -275,11 +285,10 @@ export default function AdminCmsSettingsPage() {
             </div>
           </div>
 
-          <FormTextarea
-            label="Preset JSON"
-            value={presetText}
-            onChange={(event) => setPresetText(event.target.value)}
-            className="min-h-[260px]"
+          <TestPresetsEditor
+            presets={presetEntries}
+            onChange={setPresetEntries}
+            subjects={subjects}
           />
 
           <p className="text-xs text-muted-foreground">

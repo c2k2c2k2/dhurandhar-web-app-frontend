@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { RequirePerm } from "@/lib/auth/guards";
 import { hasPermission } from "@/lib/auth/permissions";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -19,7 +18,8 @@ import {
   useCancelBroadcast,
 } from "@/modules/notifications/hooks";
 import type { NotificationBroadcast } from "@/modules/notifications/types";
-import { FormInput, FormSelect, FormTextarea } from "@/modules/shared/components/FormField";
+import { FormInput, FormSelect } from "@/modules/shared/components/FormField";
+import { StringListEditor } from "@/modules/shared/components/StructuredEditors";
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -78,7 +78,11 @@ export default function AdminNotificationBroadcastsPage() {
   const [title, setTitle] = React.useState("");
   const [broadcastChannel, setBroadcastChannel] = React.useState("EMAIL");
   const [templateId, setTemplateId] = React.useState("");
-  const [audienceJson, setAudienceJson] = React.useState("{}");
+  const [audienceUserType, setAudienceUserType] = React.useState("");
+  const [audienceStatus, setAudienceStatus] = React.useState("");
+  const [audienceUserIds, setAudienceUserIds] = React.useState<string[]>([]);
+  const [audienceCreatedFrom, setAudienceCreatedFrom] = React.useState("");
+  const [audienceCreatedTo, setAudienceCreatedTo] = React.useState("");
   const [scheduledAt, setScheduledAt] = React.useState("");
 
   const [scheduleOpen, setScheduleOpen] = React.useState(false);
@@ -86,16 +90,21 @@ export default function AdminNotificationBroadcastsPage() {
   const [scheduleAt, setScheduleAt] = React.useState("");
 
   const handleCreate = async () => {
-    let parsedAudience: Record<string, unknown>;
-    try {
-      parsedAudience = JSON.parse(audienceJson || "{}") as Record<string, unknown>;
-    } catch {
-      toast({
-        title: "Invalid audience JSON",
-        description: "Audience JSON must be valid JSON.",
-        variant: "destructive",
-      });
-      return;
+    const parsedAudience: Record<string, unknown> = {};
+    if (audienceUserType) {
+      parsedAudience.userType = audienceUserType;
+    }
+    if (audienceStatus) {
+      parsedAudience.status = audienceStatus;
+    }
+    if (audienceUserIds.length) {
+      parsedAudience.userIds = audienceUserIds.map((item) => item.trim()).filter(Boolean);
+    }
+    if (audienceCreatedFrom) {
+      parsedAudience.createdFrom = new Date(audienceCreatedFrom).toISOString();
+    }
+    if (audienceCreatedTo) {
+      parsedAudience.createdTo = new Date(audienceCreatedTo).toISOString();
     }
 
     try {
@@ -110,7 +119,11 @@ export default function AdminNotificationBroadcastsPage() {
       setCreateOpen(false);
       setTitle("");
       setTemplateId("");
-      setAudienceJson("{}");
+      setAudienceUserType("");
+      setAudienceStatus("");
+      setAudienceUserIds([]);
+      setAudienceCreatedFrom("");
+      setAudienceCreatedTo("");
       setScheduledAt("");
     } catch (err) {
       toast({
@@ -147,7 +160,7 @@ export default function AdminNotificationBroadcastsPage() {
     }
   };
 
-  const handleCancel = async (broadcastId: string) => {
+  const handleCancel = React.useCallback(async (broadcastId: string) => {
     try {
       await cancelBroadcast.mutateAsync(broadcastId);
       toast({ title: "Broadcast cancelled" });
@@ -161,7 +174,7 @@ export default function AdminNotificationBroadcastsPage() {
         variant: "destructive",
       });
     }
-  };
+  }, [cancelBroadcast, toast]);
 
   const columns = React.useMemo<DataTableColumn<NotificationBroadcast>[]>(
     () => [
@@ -222,7 +235,7 @@ export default function AdminNotificationBroadcastsPage() {
         ),
       },
     ],
-    [canManage]
+    [canManage, handleCancel]
   );
 
   return (
@@ -346,19 +359,56 @@ export default function AdminNotificationBroadcastsPage() {
               </option>
             ))}
           </FormSelect>
-          <FormTextarea
-            label="Audience JSON"
-            description="Use presets below if you are unsure."
-            placeholder='{"type":"STUDENT"}'
-            value={audienceJson}
-            onChange={(event) => setAudienceJson(event.target.value)}
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormSelect
+              label="User Type"
+              value={audienceUserType}
+              onChange={(event) => setAudienceUserType(event.target.value)}
+            >
+              <option value="">All users</option>
+              <option value="STUDENT">Students only</option>
+              <option value="ADMIN">Admins only</option>
+            </FormSelect>
+            <FormSelect
+              label="Account Status"
+              value={audienceStatus}
+              onChange={(event) => setAudienceStatus(event.target.value)}
+            >
+              <option value="">All statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="BLOCKED">Blocked</option>
+            </FormSelect>
+            <FormInput
+              label="Created From"
+              type="datetime-local"
+              value={audienceCreatedFrom}
+              onChange={(event) => setAudienceCreatedFrom(event.target.value)}
+            />
+            <FormInput
+              label="Created To"
+              type="datetime-local"
+              value={audienceCreatedTo}
+              onChange={(event) => setAudienceCreatedTo(event.target.value)}
+            />
+          </div>
+          <StringListEditor
+            label="Specific User IDs"
+            description="Optional. Leave empty to target all users matching the filters above."
+            values={audienceUserIds}
+            onChange={setAudienceUserIds}
+            itemLabel="User ID"
+            addLabel="Add user ID"
           />
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               size="sm"
               variant="secondary"
-              onClick={() => setAudienceJson('{"type":"STUDENT"}')}
+              onClick={() => {
+                setAudienceUserType("STUDENT");
+                setAudienceStatus("");
+                setAudienceUserIds([]);
+              }}
             >
               All students
             </Button>
@@ -366,17 +416,25 @@ export default function AdminNotificationBroadcastsPage() {
               type="button"
               size="sm"
               variant="secondary"
-              onClick={() => setAudienceJson('{"hasActiveSubscription":true}')}
+              onClick={() => {
+                setAudienceUserType("ADMIN");
+                setAudienceStatus("");
+                setAudienceUserIds([]);
+              }}
             >
-              Premium only
+              All admins
             </Button>
             <Button
               type="button"
               size="sm"
               variant="secondary"
-              onClick={() => setAudienceJson('{"hasActiveSubscription":false}')}
+              onClick={() => {
+                setAudienceUserType("");
+                setAudienceStatus("ACTIVE");
+                setAudienceUserIds([]);
+              }}
             >
-              No active plan
+              All active users
             </Button>
           </div>
           <FormInput
