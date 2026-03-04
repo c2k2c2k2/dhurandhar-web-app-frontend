@@ -13,6 +13,9 @@ const BUNDLED_FONT_CANDIDATES = [
   { url: "/fonts/S0708892-webfix.ttf", label: "S0708892-webfix.ttf", mime: "font/ttf" },
   { url: "/fonts/S0708892.woff", label: "S0708892.woff", mime: "font/woff" },
   { url: "/fonts/S0708892.ttf", label: "S0708892.ttf", mime: "font/ttf" },
+  { url: "/fonts/sulekha/DVBWSR3N.TTF", label: "Surekh Normal", mime: "font/ttf" },
+  { url: "/fonts/sulekha/DVBWSR3I.TTF", label: "Surekh Italic", mime: "font/ttf" },
+  { url: "/fonts/sulekha/DVBWSR3B.TTF", label: "Surekh Bold", mime: "font/ttf" },
 ] as const;
 const DEFAULT_TEXT = [
   "Paste text copied from PDF here and compare rendering.",
@@ -227,8 +230,8 @@ export default function AdminFontTestPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Legacy Font Test"
-        description="Temporary test page. Upload a font and paste PDF text to check rendering behavior."
+        title="Marathi Font Test"
+        description="Temporary test page. Load bundled Shree-Dev or Surekh fonts and compare rendering."
       />
 
       <Card>

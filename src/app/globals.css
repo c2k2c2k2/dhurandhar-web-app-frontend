@@ -82,6 +82,66 @@ html {
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Shree-Dev";
+  src: url("/fonts/S0708892-nohint.woff") format("woff"),
+    url("/fonts/S0708892-nohint.ttf") format("truetype"),
+    url("/fonts/S0708892-webfix.woff") format("woff"),
+    url("/fonts/S0708892-webfix.ttf") format("truetype"),
+    url("/fonts/S0708892.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Sulekha";
+  src: url("/fonts/sulekha/DVBWSR3N.TTF") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Sulekha";
+  src: url("/fonts/sulekha/DVBWSR3I.TTF") format("truetype");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Sulekha";
+  src: url("/fonts/sulekha/DVBWSR3B.TTF") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Surekh";
+  src: url("/fonts/sulekha/DVBWSR3N.TTF") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Surekh";
+  src: url("/fonts/sulekha/DVBWSR3I.TTF") format("truetype");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Surekh";
+  src: url("/fonts/sulekha/DVBWSR3B.TTF") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -98,22 +158,62 @@ html {
 }
 
 .font-marathi-unicode {
-  font-family: var(--font-devanagari), var(--font-sans), "Shree Dev 0708",
+  font-family: var(--font-devanagari), var(--font-sans), "Shree-Dev",
+    "Shree Dev 0708",
     system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
+.font-marathi-encoded {
+  letter-spacing: 0.01em;
+}
+
+.font-marathi-shree-dev,
 .font-legacy-marathi {
-  font-family: "Shree Dev 0708", var(--font-devanagari), var(--font-sans),
+  font-family: "Shree-Dev", "Shree Dev 0708", var(--font-devanagari),
+    var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto, Arial,
+    sans-serif;
+}
+
+.font-marathi-surekh,
+.font-marathi-sulekha {
+  font-family: "Surekh", "Sulekha", var(--font-devanagari), var(--font-sans),
     system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
-.question-rich-content .font-legacy-marathi {
+.question-rich-content .font-marathi-encoded,
+.question-rich-content .font-legacy-marathi,
+.question-rich-content [data-question-font="shree-dev"],
+.question-rich-content [data-question-font="surekh"],
+.question-rich-content [data-question-font="sulekha"] {
   font-size: 1.18em;
   line-height: 1.75;
 }
 
+.question-rich-content [data-question-font="shree-dev"] {
+  font-family: "Shree-Dev", "Shree Dev 0708", var(--font-devanagari),
+    var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto, Arial,
+    sans-serif;
+}
+
+.question-rich-content [data-question-font="sulekha"] {
+  font-family: "Surekh", "Sulekha", var(--font-devanagari), var(--font-sans),
+    system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.question-rich-content [data-question-font="surekh"] {
+  font-family: "Surekh", "Sulekha", var(--font-devanagari), var(--font-sans),
+    system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.question-rich-content .font-legacy-marathi {
+  font-family: "Shree-Dev", "Shree Dev 0708", var(--font-devanagari),
+    var(--font-sans),
+    system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
 .question-rich-content [data-question-legacy="true"] {
-  font-family: "Shree Dev 0708", var(--font-devanagari), var(--font-sans),
+  font-family: "Shree-Dev", "Shree Dev 0708", var(--font-devanagari),
+    var(--font-sans),
     system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
@@ -156,24 +256,53 @@ html {
   margin-bottom: 0.25rem;
 }
 
-.question-rich-content table {
-  width: 100%;
-  border-collapse: collapse;
+.question-rich-content .tableWrapper {
   margin: 0.65rem 0;
-  display: block;
   overflow-x: auto;
+}
+
+.question-rich-content table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  margin: 0;
 }
 
 .question-rich-content table th,
 .question-rich-content table td {
   border: 1px solid rgb(var(--border));
+  min-width: 72px;
   padding: 0.5rem 0.6rem;
+  position: relative;
   vertical-align: top;
 }
 
 .question-rich-content table th {
   background: rgb(var(--muted));
   font-weight: 600;
+}
+
+.question-rich-content table th p,
+.question-rich-content table td p {
+  margin: 0;
+}
+
+.question-rich-content .selectedCell::after {
+  background: rgb(var(--primary) / 0.14);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.question-rich-content .column-resize-handle {
+  background: rgb(var(--ring));
+  bottom: -1px;
+  pointer-events: none;
+  position: absolute;
+  right: -2px;
+  top: -1px;
+  width: 4px;
 }
 
 .question-rich-content img {

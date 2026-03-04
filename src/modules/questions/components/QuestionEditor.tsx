@@ -37,6 +37,7 @@ import {
 } from "../utils";
 import { getAssetUrl } from "@/lib/api/assets";
 import { useCreateQuestion, useQuestion, useUpdateQuestion } from "../hooks";
+import { hasEncodedMarathiMarker } from "../marathi-fonts";
 import { RichTextEditor } from "./RichTextEditor";
 import { QuestionPreviewModal } from "./QuestionPreviewModal";
 
@@ -81,25 +82,6 @@ function createEmptyOptions() {
 }
 
 function detectLanguageMode(question: QuestionDetail): QuestionLanguageMode {
-  const hasLegacyMarathiMarker = (value: unknown): boolean => {
-    if (!value) return false;
-    if (typeof value === "string") {
-      return /(font-legacy-marathi|data-question-legacy|shree dev|s0708892|shreelipi)/i.test(
-        value
-      );
-    }
-    if (Array.isArray(value)) {
-      return value.some((entry) => hasLegacyMarathiMarker(entry));
-    }
-    if (typeof value !== "object") {
-      return false;
-    }
-
-    return Object.values(value as Record<string, unknown>).some((entry) =>
-      hasLegacyMarathiMarker(entry)
-    );
-  };
-
   const mergeLanguageModes = (
     current: QuestionLanguageMode | undefined,
     next: QuestionLanguageMode | undefined
@@ -162,7 +144,7 @@ function detectLanguageMode(question: QuestionDetail): QuestionLanguageMode {
 
   const hasEnglish = values.some((value) => hasLanguageVariant(value, "en"));
   const hasMarathi = values.some((value) => hasLanguageVariant(value, "mr"));
-  const hasLegacyMarathi = values.some((value) => hasLegacyMarathiMarker(value));
+  const hasLegacyMarathi = values.some((value) => hasEncodedMarathiMarker(value));
 
   if (hasLegacyMarathi && !hasMarathi) {
     return "MARATHI";
