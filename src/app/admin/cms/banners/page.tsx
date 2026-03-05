@@ -8,6 +8,7 @@ import { RequirePerm } from "@/lib/auth/guards";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/modules/shared/components/Toast";
 import { Modal } from "@/modules/shared/components/Modal";
+import { ConfirmDialog } from "@/modules/shared/components/ConfirmDialog";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
 import { ErrorState, LoadingState } from "@/modules/shared/components/States";
 import { DataTable, type DataTableColumn } from "@/modules/shared/components/DataTable";
@@ -21,6 +22,7 @@ import { CmsBlocksEditor } from "@/modules/cms/components/CmsBlocksEditor";
 import {
   useBanners,
   useCreateBanner,
+  useDeleteBanner,
   useUpdateBanner,
 } from "@/modules/cms/hooks";
 import type { Banner, BannerCreateInput } from "@/modules/cms/types";
@@ -222,9 +224,11 @@ export default function AdminCmsBannersPage() {
   const pageSize = 20;
   const { data, isLoading, error } = useBanners({ page, pageSize });
   const createBanner = useCreateBanner();
+  const deleteBanner = useDeleteBanner();
   const updateBanner = useUpdateBanner();
   const [editorOpen, setEditorOpen] = React.useState(false);
   const [activeBanner, setActiveBanner] = React.useState<Banner | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<Banner | null>(null);
 
   const handleSave = async (payload: BannerCreateInput) => {
     try {
@@ -247,6 +251,24 @@ export default function AdminCmsBannersPage() {
       });
     }
   };
+
+  const handleDelete = React.useCallback(async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteBanner.mutateAsync(deleteTarget.id);
+      toast({ title: "Banner deleted" });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete banner.",
+        variant: "destructive",
+      });
+    }
+  }, [deleteBanner, deleteTarget, toast]);
 
   const columns = React.useMemo<DataTableColumn<Banner>[]>(
     () => [
@@ -291,16 +313,26 @@ export default function AdminCmsBannersPage() {
         header: "",
         className: "text-right",
         render: (banner) => (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setActiveBanner(banner);
-              setEditorOpen(true);
-            }}
-          >
-            Edit
-          </Button>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setActiveBanner(banner);
+                setEditorOpen(true);
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeleteTarget(banner)}
+            >
+              Delete
+            </Button>
+          </div>
         ),
       },
     ],
@@ -364,6 +396,17 @@ export default function AdminCmsBannersPage() {
         initial={activeBanner}
         onSave={handleSave}
         saving={createBanner.isPending || updateBanner.isPending}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Delete this banner?"
+        description="This removes the banner and linked media references."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
       />
     </RequirePerm>
   );

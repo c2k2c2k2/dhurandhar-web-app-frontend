@@ -41,3 +41,9 @@ export async function updateTopic(topicId: string, input: TopicUpdateInput) {
     body: JSON.stringify(input),
   });
 }
+
+export async function deleteTopic(topicId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/topics/${topicId}`, {
+    method: "DELETE",
+  });
+}

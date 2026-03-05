@@ -71,6 +71,16 @@ export function useUpdateBanner() {
   });
 }
 
+export function useDeleteBanner() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (bannerId: string) => api.deleteBanner(bannerId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "cms", "banners"] });
+    },
+  });
+}
+
 export function useAnnouncements(filters: AnnouncementFilters = {}) {
   return useQuery({
     queryKey: announcementsKey(filters),
@@ -108,6 +118,18 @@ export function useUpdateAnnouncement() {
   });
 }
 
+export function useDeleteAnnouncement() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (announcementId: string) => api.deleteAnnouncement(announcementId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "cms", "announcements"],
+      });
+    },
+  });
+}
+
 export function useHomeSections(filters: HomeSectionFilters = {}) {
   return useQuery({
     queryKey: homeSectionsKey(filters),
@@ -137,6 +159,18 @@ export function useUpdateHomeSection() {
       sectionId: string;
       input: HomeSectionUpdateInput;
     }) => api.updateHomeSection(sectionId, input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "cms", "home-sections"],
+      });
+    },
+  });
+}
+
+export function useDeleteHomeSection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (sectionId: string) => api.deleteHomeSection(sectionId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ["admin", "cms", "home-sections"],
@@ -184,6 +218,16 @@ export function useUpdatePage() {
       pageId: string;
       input: CmsPageUpdateInput;
     }) => api.updatePage(pageId, input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "cms", "pages"] });
+    },
+  });
+}
+
+export function useDeletePage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (pageId: string) => api.deletePage(pageId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin", "cms", "pages"] });
     },

@@ -8,6 +8,7 @@ import { RequirePerm } from "@/lib/auth/guards";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/modules/shared/components/Toast";
 import { Modal } from "@/modules/shared/components/Modal";
+import { ConfirmDialog } from "@/modules/shared/components/ConfirmDialog";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
 import { ErrorState, LoadingState } from "@/modules/shared/components/States";
 import { DataTable, type DataTableColumn } from "@/modules/shared/components/DataTable";
@@ -23,6 +24,7 @@ import {
 } from "@/modules/shared/structured-data";
 import {
   useCreateHomeSection,
+  useDeleteHomeSection,
   useHomeSections,
   useReorderHomeSections,
   useUpdateHomeSection,
@@ -277,10 +279,12 @@ export default function AdminCmsHomeSectionsPage() {
   const { toast } = useToast();
   const { data, isLoading, error } = useHomeSections({ page: 1, pageSize: 50 });
   const createSection = useCreateHomeSection();
+  const deleteSection = useDeleteHomeSection();
   const updateSection = useUpdateHomeSection();
   const reorderSections = useReorderHomeSections();
   const [editorOpen, setEditorOpen] = React.useState(false);
   const [activeSection, setActiveSection] = React.useState<HomeSection | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<HomeSection | null>(null);
 
   const sections = React.useMemo(
     () => [...(data?.data ?? [])].sort((a, b) => a.orderIndex - b.orderIndex),
@@ -311,6 +315,24 @@ export default function AdminCmsHomeSectionsPage() {
       });
     }
   };
+
+  const handleDelete = React.useCallback(async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteSection.mutateAsync(deleteTarget.id);
+      toast({ title: "Home section deleted" });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete home section.",
+        variant: "destructive",
+      });
+    }
+  }, [deleteSection, deleteTarget, toast]);
 
   const handleMove = React.useCallback(async (sectionId: string, direction: "up" | "down") => {
     const index = sections.findIndex((section) => section.id === sectionId);
@@ -402,6 +424,14 @@ export default function AdminCmsHomeSectionsPage() {
             >
               Edit
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeleteTarget(section)}
+            >
+              Delete
+            </Button>
           </div>
         ),
       },
@@ -450,6 +480,17 @@ export default function AdminCmsHomeSectionsPage() {
         initial={activeSection}
         onSave={handleSave}
         saving={createSection.isPending || updateSection.isPending}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Delete this home section?"
+        description="This removes the section from the student home configuration."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
       />
     </RequirePerm>
   );

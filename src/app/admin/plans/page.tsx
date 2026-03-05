@@ -6,6 +6,7 @@ import { Can, RequirePerm } from "@/lib/auth/guards";
 import {
   useAdminPlans,
   useCreateAdminPlan,
+  useDeleteAdminPlan,
   useUpdateAdminPlan,
 } from "@/modules/admin-plans/hooks";
 import type {
@@ -19,6 +20,7 @@ import {
   DataTable,
   type DataTableColumn,
 } from "@/modules/shared/components/DataTable";
+import { ConfirmDialog } from "@/modules/shared/components/ConfirmDialog";
 import { FormInput, FormSelect } from "@/modules/shared/components/FormField";
 import { EntitlementRulesEditor } from "@/modules/shared/components/EntitlementEditors";
 import { Modal } from "@/modules/shared/components/Modal";
@@ -114,6 +116,7 @@ export default function AdminPlansPage() {
   const [entitlementRules, setEntitlementRules] = React.useState<EditableEntitlementRule[]>([]);
   const [featuresPreserved, setFeaturesPreserved] = React.useState<Record<string, unknown>>({});
   const [featuresNotice, setFeaturesNotice] = React.useState<string>("");
+  const [deleteTarget, setDeleteTarget] = React.useState<AdminPlan | null>(null);
 
   const pageSize = 20;
   const query = {
@@ -125,6 +128,7 @@ export default function AdminPlansPage() {
   const { data, isLoading, error } = useAdminPlans(query);
   const createPlan = useCreateAdminPlan(query);
   const updatePlan = useUpdateAdminPlan(query);
+  const deletePlan = useDeleteAdminPlan(query);
 
   const openCreate = () => {
     setEditingPlan(null);
@@ -244,6 +248,24 @@ export default function AdminPlansPage() {
     }
   };
 
+  const handleDelete = React.useCallback(async () => {
+    if (!deleteTarget) return;
+    try {
+      await deletePlan.mutateAsync(deleteTarget.id);
+      toast({ title: "Plan deleted" });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete plan.",
+        variant: "destructive",
+      });
+    }
+  }, [deletePlan, deleteTarget, toast]);
+
   const plans = data?.data ?? [];
 
   const columns = React.useMemo<DataTableColumn<AdminPlan>[]>(
@@ -297,9 +319,19 @@ export default function AdminPlansPage() {
         className: "text-right",
         render: (plan) => (
           <Can perm="admin.config.write">
-            <Button variant="ghost" size="sm" onClick={() => openEdit(plan)}>
-              Edit
-            </Button>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => openEdit(plan)}>
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setDeleteTarget(plan)}
+              >
+                Delete
+              </Button>
+            </div>
           </Can>
         ),
       },
@@ -500,6 +532,17 @@ export default function AdminPlansPage() {
             </div>
           </form>
         </Modal>
+
+        <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+          title="Delete this plan?"
+          description="Plans linked to subscriptions or payments cannot be deleted."
+          confirmLabel="Delete"
+          onConfirm={handleDelete}
+        />
       </div>
     </RequirePerm>
   );

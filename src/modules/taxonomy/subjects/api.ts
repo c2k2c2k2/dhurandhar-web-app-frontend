@@ -41,3 +41,9 @@ export async function updateSubject(
     body: JSON.stringify(input),
   });
 }
+
+export async function deleteSubject(subjectId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/subjects/${subjectId}`, {
+    method: "DELETE",
+  });
+}

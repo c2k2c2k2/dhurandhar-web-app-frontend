@@ -20,6 +20,7 @@ import { CmsSubNav } from "@/modules/cms/components/CmsSubNav";
 import { CmsBlocksEditor } from "@/modules/cms/components/CmsBlocksEditor";
 import {
   useCreatePage,
+  useDeletePage,
   usePages,
   usePublishPage,
   useUnpublishPage,
@@ -174,6 +175,7 @@ export default function AdminCmsPagesPage() {
 
   const { data, isLoading, error } = usePages(filters);
   const createPage = useCreatePage();
+  const deletePage = useDeletePage();
   const updatePage = useUpdatePage();
   const publishPage = usePublishPage();
   const unpublishPage = useUnpublishPage();
@@ -184,6 +186,7 @@ export default function AdminCmsPagesPage() {
   const [confirmAction, setConfirmAction] = React.useState<"publish" | "unpublish">(
     "publish"
   );
+  const [deleteTarget, setDeleteTarget] = React.useState<CmsPage | null>(null);
 
   const handleSave = async (payload: CmsPageCreateInput) => {
     try {
@@ -242,6 +245,24 @@ export default function AdminCmsPagesPage() {
     setConfirmPage(null);
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deletePage.mutateAsync(deleteTarget.id);
+      toast({ title: "Page deleted" });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete page.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const columns = React.useMemo<DataTableColumn<CmsPage>[]>(
     () => [
       {
@@ -290,6 +311,14 @@ export default function AdminCmsPagesPage() {
               onClick={() => openPublishConfirm(pageItem)}
             >
               {pageItem.status === "PUBLISHED" ? "Unpublish" : "Publish"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeleteTarget(pageItem)}
+            >
+              Delete
             </Button>
           </div>
         ),
@@ -408,6 +437,17 @@ export default function AdminCmsPagesPage() {
         }
         confirmLabel={confirmAction === "publish" ? "Publish" : "Move to Draft"}
         onConfirm={handleConfirmPublish}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Delete this page?"
+        description="This page and its linked media references will be removed."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
       />
     </RequirePerm>
   );

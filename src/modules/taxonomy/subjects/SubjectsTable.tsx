@@ -24,9 +24,11 @@ function formatDate(value?: string) {
 export function SubjectsTable({
   subjects,
   onEdit,
+  onDelete,
 }: {
   subjects: Subject[];
   onEdit: (subject: Subject) => void;
+  onDelete: (subject: Subject) => void;
 }) {
   const columns = React.useMemo<DataTableColumn<Subject>[]>(
     () => [
@@ -73,6 +75,14 @@ export function SubjectsTable({
             <Button variant="ghost" size="sm" onClick={() => onEdit(subject)}>
               Edit
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => onDelete(subject)}
+            >
+              Delete
+            </Button>
             <Button variant="secondary" size="sm" asChild>
               <Link href={`/admin/taxonomy/topics?subjectId=${subject.id}`}>
                 Topics
@@ -82,7 +92,7 @@ export function SubjectsTable({
         ),
       },
     ],
-    [onEdit]
+    [onDelete, onEdit]
   );
 
   return (

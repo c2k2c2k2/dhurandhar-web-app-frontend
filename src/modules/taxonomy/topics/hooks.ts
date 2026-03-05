@@ -39,3 +39,13 @@ export function useUpdateTopic(subjectId: string) {
     },
   });
 }
+
+export function useDeleteTopic(subjectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (topicId: string) => api.deleteTopic(topicId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: topicsKey(subjectId) });
+    },
+  });
+}

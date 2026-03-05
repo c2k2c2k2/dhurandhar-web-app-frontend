@@ -34,15 +34,19 @@ export function TestsTable({
   tests,
   canEdit,
   canPublish,
+  canDelete,
   onPublish,
   onUnpublish,
+  onDelete,
   pagination,
 }: {
   tests: TestItem[];
   canEdit: boolean;
   canPublish: boolean;
+  canDelete: boolean;
   onPublish: (testId: string) => void;
   onUnpublish: (testId: string) => void;
+  onDelete: (testId: string) => void;
   pagination?: DataTablePagination;
 }) {
   const columns = React.useMemo<DataTableColumn<TestItem>[]>(
@@ -123,11 +127,21 @@ export function TestsTable({
                 </Button>
               )
             ) : null}
+            {canDelete ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => onDelete(test.id)}
+              >
+                Delete
+              </Button>
+            ) : null}
           </div>
         ),
       },
     ],
-    [canEdit, canPublish, onPublish, onUnpublish]
+    [canEdit, canPublish, canDelete, onPublish, onUnpublish, onDelete]
   );
 
   return (

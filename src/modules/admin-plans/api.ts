@@ -45,3 +45,9 @@ export async function updateAdminPlan(
     body: JSON.stringify(payload),
   });
 }
+
+export async function deleteAdminPlan(planId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/plans/${planId}`, {
+    method: "DELETE",
+  });
+}

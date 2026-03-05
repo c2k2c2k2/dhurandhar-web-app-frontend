@@ -8,10 +8,12 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { FiltersBar } from "@/modules/shared/components/FiltersBar";
 import { DataTable, type DataTableColumn } from "@/modules/shared/components/DataTable";
 import { Modal } from "@/modules/shared/components/Modal";
+import { ConfirmDialog } from "@/modules/shared/components/ConfirmDialog";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
 import { useToast } from "@/modules/shared/components/Toast";
 import {
   useCreateBroadcast,
+  useDeleteBroadcast,
   useNotificationBroadcasts,
   useNotificationTemplates,
   useScheduleBroadcast,
@@ -71,6 +73,7 @@ export default function AdminNotificationBroadcastsPage() {
   const { data, isLoading, error } = useNotificationBroadcasts(query);
   const { data: templates } = useNotificationTemplates({});
   const createBroadcast = useCreateBroadcast(query);
+  const deleteBroadcast = useDeleteBroadcast(query);
   const scheduleBroadcast = useScheduleBroadcast(query);
   const cancelBroadcast = useCancelBroadcast(query);
 
@@ -88,6 +91,7 @@ export default function AdminNotificationBroadcastsPage() {
   const [scheduleOpen, setScheduleOpen] = React.useState(false);
   const [scheduleId, setScheduleId] = React.useState<string | null>(null);
   const [scheduleAt, setScheduleAt] = React.useState("");
+  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
 
   const handleCreate = async () => {
     const parsedAudience: Record<string, unknown> = {};
@@ -176,6 +180,24 @@ export default function AdminNotificationBroadcastsPage() {
     }
   }, [cancelBroadcast, toast]);
 
+  const handleDelete = React.useCallback(async () => {
+    if (!deleteTargetId) return;
+    try {
+      await deleteBroadcast.mutateAsync(deleteTargetId);
+      toast({ title: "Broadcast deleted" });
+      setDeleteTargetId(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete broadcast.",
+        variant: "destructive",
+      });
+    }
+  }, [deleteBroadcast, deleteTargetId, toast]);
+
   const columns = React.useMemo<DataTableColumn<NotificationBroadcast>[]>(
     () => [
       {
@@ -230,6 +252,15 @@ export default function AdminNotificationBroadcastsPage() {
               onClick={() => handleCancel(broadcast.id)}
             >
               Cancel
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              disabled={!canManage}
+              onClick={() => setDeleteTargetId(broadcast.id)}
+            >
+              Delete
             </Button>
           </div>
         ),
@@ -480,6 +511,17 @@ export default function AdminNotificationBroadcastsPage() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={Boolean(deleteTargetId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetId(null);
+        }}
+        title="Delete this broadcast?"
+        description="Sent broadcasts cannot be deleted."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
     </RequirePerm>
   );
 }

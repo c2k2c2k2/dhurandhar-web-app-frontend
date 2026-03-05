@@ -11,12 +11,15 @@ import { Input } from "@/components/ui/input";
 import { FormField, FormSelect } from "@/modules/shared/components/FormField";
 import { FiltersBar } from "@/modules/shared/components/FiltersBar";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
+import { ConfirmDialog } from "@/modules/shared/components/ConfirmDialog";
 import { ErrorState, LoadingState } from "@/modules/shared/components/States";
+import { useToast } from "@/modules/shared/components/Toast";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { useSubjects } from "@/modules/taxonomy/subjects/hooks";
 import { useTopics } from "@/modules/taxonomy/topics/hooks";
 import { QuestionsTable } from "@/modules/questions/components/QuestionsTable";
 import {
+  useDeleteQuestion,
   usePublishQuestion,
   useQuestions,
   useUnpublishQuestion,
@@ -25,6 +28,7 @@ import { extractText } from "@/modules/questions/utils";
 
 export default function AdminQuestionsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const canEdit = hasPermission(user, "questions.crud");
   const canPublish = hasPermission(user, "questions.publish");
 
@@ -96,6 +100,26 @@ export default function AdminQuestionsPage() {
 
   const publishQuestion = usePublishQuestion();
   const unpublishQuestion = useUnpublishQuestion();
+  const deleteQuestion = useDeleteQuestion();
+  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
+
+  const handleDeleteQuestion = React.useCallback(async () => {
+    if (!deleteTargetId) return;
+    try {
+      await deleteQuestion.mutateAsync(deleteTargetId);
+      toast({ title: "Question deleted" });
+      setDeleteTargetId(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete question.",
+        variant: "destructive",
+      });
+    }
+  }, [deleteQuestion, deleteTargetId, toast]);
 
   const searchTerm = searchParam.trim().toLowerCase();
   const filteredQuestions = React.useMemo(() => {
@@ -216,11 +240,24 @@ export default function AdminQuestionsPage() {
             topics={topics || []}
             canEdit={canEdit}
             canPublish={canPublish}
+            canDelete={canEdit}
             onPublish={(questionId) => publishQuestion.mutate(questionId)}
             onUnpublish={(questionId) => unpublishQuestion.mutate(questionId)}
+            onDelete={(questionId) => setDeleteTargetId(questionId)}
           />
         )}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(deleteTargetId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetId(null);
+        }}
+        title="Delete this question?"
+        description="This removes the question and related references. This action cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={handleDeleteQuestion}
+      />
     </RequirePerm>
   );
 }

@@ -102,3 +102,9 @@ export async function cancelPrintJob(jobId: string) {
     method: "POST",
   });
 }
+
+export async function deletePrintJob(jobId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/print-jobs/${jobId}`, {
+    method: "DELETE",
+  });
+}

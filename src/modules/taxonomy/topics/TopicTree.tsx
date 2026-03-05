@@ -36,10 +36,12 @@ export function TopicTree({
   topics,
   onEdit,
   onAddChild,
+  onDelete,
 }: {
   topics: Topic[];
   onEdit: (topic: Topic) => void;
   onAddChild: (topic: Topic | null) => void;
+  onDelete: (topic: Topic) => void;
 }) {
   const tree = React.useMemo(() => buildTree(topics), [topics]);
 
@@ -73,6 +75,14 @@ export function TopicTree({
               </Button>
               <Button variant="secondary" size="sm" onClick={() => onAddChild(topic)}>
                 Add Child
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => onDelete(topic)}
+              >
+                Delete
               </Button>
             </div>
           </div>

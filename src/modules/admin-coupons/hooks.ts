@@ -45,3 +45,13 @@ export function useUpdateAdminCoupon(query: AdminCouponsQuery) {
     },
   });
 }
+
+export function useDeleteAdminCoupon(query: AdminCouponsQuery) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (couponId: string) => api.deleteAdminCoupon(couponId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: couponsKey(query) });
+    },
+  });
+}

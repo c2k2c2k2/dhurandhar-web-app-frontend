@@ -87,6 +87,12 @@ export async function updateTemplate(templateId: string, payload: TemplateUpdate
   );
 }
 
+export async function deleteTemplate(templateId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/notifications/templates/${templateId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function listMessages(query: MessagesQuery) {
   return apiFetch<NotificationMessageResponse>(
     `/admin/notifications/messages${buildQuery(query)}`,
@@ -130,4 +136,10 @@ export async function cancelBroadcast(broadcastId: string) {
     `/admin/notifications/broadcasts/${broadcastId}/cancel`,
     { method: "POST" }
   );
+}
+
+export async function deleteBroadcast(broadcastId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/notifications/broadcasts/${broadcastId}`, {
+    method: "DELETE",
+  });
 }

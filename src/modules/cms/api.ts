@@ -102,6 +102,12 @@ export async function updateBanner(bannerId: string, input: BannerUpdateInput) {
   });
 }
 
+export async function deleteBanner(bannerId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/cms/banners/${bannerId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function listAnnouncements(filters: AnnouncementFilters = {}) {
   const params = new URLSearchParams();
   if (filters.page) params.set("page", String(filters.page));
@@ -131,6 +137,15 @@ export async function updateAnnouncement(
   });
 }
 
+export async function deleteAnnouncement(announcementId: string) {
+  return apiFetch<{ success: boolean }>(
+    `/admin/cms/announcements/${announcementId}`,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
 export async function listHomeSections(filters: HomeSectionFilters = {}) {
   const params = new URLSearchParams();
   if (filters.page) params.set("page", String(filters.page));
@@ -157,6 +172,12 @@ export async function updateHomeSection(
   return apiFetch<HomeSection>(`/admin/cms/home-sections/${sectionId}`, {
     method: "PATCH",
     body: JSON.stringify(input),
+  });
+}
+
+export async function deleteHomeSection(sectionId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/cms/home-sections/${sectionId}`, {
+    method: "DELETE",
   });
 }
 
@@ -192,6 +213,12 @@ export async function updatePage(pageId: string, input: CmsPageUpdateInput) {
   return apiFetch<CmsPage>(`/admin/cms/pages/${pageId}`, {
     method: "PATCH",
     body: JSON.stringify(input),
+  });
+}
+
+export async function deletePage(pageId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/cms/pages/${pageId}`, {
+    method: "DELETE",
   });
 }
 

@@ -8,6 +8,11 @@ import { DataTable, type DataTableColumn } from "@/modules/shared/components/Dat
 import type { Subject } from "@/modules/taxonomy/subjects/types";
 import type { Topic } from "@/modules/taxonomy/topics/types";
 import type { QuestionItem } from "../types";
+import {
+  hasEncodedMarathiMarker,
+  isLikelyLegacyMarathiEncodedText,
+  MARATHI_FONT_CLASSES,
+} from "../marathi-fonts";
 import { extractText, truncateText } from "../utils";
 
 function formatDate(value?: string | null) {
@@ -51,16 +56,20 @@ export function QuestionsTable({
   topics,
   canEdit,
   canPublish,
+  canDelete,
   onPublish,
   onUnpublish,
+  onDelete,
 }: {
   questions: QuestionItem[];
   subjects: Subject[];
   topics: Topic[];
   canEdit: boolean;
   canPublish: boolean;
+  canDelete: boolean;
   onPublish: (questionId: string) => void;
   onUnpublish: (questionId: string) => void;
+  onDelete: (questionId: string) => void;
 }) {
   const columns = React.useMemo<DataTableColumn<QuestionItem>[]>(
     () => [
@@ -69,11 +78,22 @@ export function QuestionsTable({
         header: "Question",
         render: (question) => {
           const snippet = truncateText(extractText(question.statementJson), 140);
+          const useLegacyMarathiFont =
+            hasEncodedMarathiMarker(question.statementJson) ||
+            isLikelyLegacyMarathiEncodedText(snippet);
           return (
             <div className="space-y-1">
-              <p className="font-medium">
+              <p
+                className={cn(
+                  "font-medium",
+                  useLegacyMarathiFont && MARATHI_FONT_CLASSES["shree-dev"]
+                )}
+              >
                 {canEdit ? (
-                  <Link href={`/admin/questions/${question.id}`} className="hover:underline">
+                  <Link
+                    href={`/admin/questions/${question.id}`}
+                    className="hover:underline"
+                  >
                     {snippet || "Untitled question"}
                   </Link>
                 ) : (
@@ -153,11 +173,21 @@ export function QuestionsTable({
                 </Button>
               )
             ) : null}
+            {canDelete ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => onDelete(question.id)}
+              >
+                Delete
+              </Button>
+            ) : null}
           </div>
         ),
       },
     ],
-    [subjects, topics, canEdit, canPublish, onPublish, onUnpublish]
+    [subjects, topics, canEdit, canPublish, canDelete, onPublish, onUnpublish, onDelete]
   );
 
   return (

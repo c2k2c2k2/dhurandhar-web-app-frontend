@@ -82,6 +82,12 @@ export async function unpublishQuestion(questionId: string) {
   });
 }
 
+export async function deleteQuestion(questionId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/questions/${questionId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function bulkImportQuestions(items: QuestionCreateInput[]) {
   return apiFetch<{ count: number; items: { id: string }[] }>(
     "/admin/questions/bulk-import",

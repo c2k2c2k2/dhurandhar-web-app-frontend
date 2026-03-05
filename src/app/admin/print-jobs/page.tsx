@@ -13,6 +13,7 @@ import { PrintJobCreator } from "@/modules/print-jobs/components/PrintJobCreator
 import { PrintJobsTable } from "@/modules/print-jobs/components/PrintJobsTable";
 import {
   useCancelPrintJob,
+  useDeletePrintJob,
   usePrintJobDownload,
   usePrintJobs,
   useRetryPrintJob,
@@ -40,8 +41,10 @@ export default function AdminPrintJobsPage() {
   const downloadJob = usePrintJobDownload();
   const retryJob = useRetryPrintJob();
   const cancelJob = useCancelPrintJob();
+  const deleteJob = useDeletePrintJob();
 
   const [cancelTarget, setCancelTarget] = React.useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<string | null>(null);
 
   const handleDownload = async (jobId: string) => {
     try {
@@ -88,6 +91,24 @@ export default function AdminPrintJobsPage() {
           err && typeof err === "object" && "message" in err
             ? String(err.message)
             : "Unable to cancel job.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteJob.mutateAsync(deleteTarget);
+      toast({ title: "Print job deleted" });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete print job.",
         variant: "destructive",
       });
     }
@@ -172,6 +193,7 @@ export default function AdminPrintJobsPage() {
             onDownload={handleDownload}
             onRetry={handleRetry}
             onCancel={(jobId) => setCancelTarget(jobId)}
+            onDelete={(jobId) => setDeleteTarget(jobId)}
             pagination={
               total > currentPageSize
                 ? {
@@ -194,6 +216,17 @@ export default function AdminPrintJobsPage() {
         onConfirm={handleCancel}
         onOpenChange={(open) => {
           if (!open) setCancelTarget(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete this print job?"
+        description="Queued, failed, cancelled, and completed jobs can be deleted. This action cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
         }}
       />
     </RequirePerm>

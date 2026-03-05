@@ -40,6 +40,10 @@ const FONT_HINTS: Record<MarathiEncodedFontKey, readonly string[]> = {
   ],
 };
 
+const DEVANAGARI_CHAR_PATTERN = /[\u0900-\u097F]/;
+const LEGACY_GLYPH_PATTERN =
+  /[À-ÿ†‡•–—…‰‹›€™„‚ƒˆ˜¯±÷×°¼½¾¿¢£¤¥¦§©®µ¶¸¹ºª«»¬]/g;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -100,4 +104,16 @@ export function hasEncodedMarathiMarker(value: unknown): boolean {
   }
 
   return Object.values(value).some((entry) => hasEncodedMarathiMarker(entry));
+}
+
+export function isLikelyLegacyMarathiEncodedText(value: string | null | undefined): boolean {
+  const text = value?.trim() ?? "";
+  if (!text) return false;
+  if (DEVANAGARI_CHAR_PATTERN.test(text)) return false;
+
+  const matches = text.match(LEGACY_GLYPH_PATTERN);
+  if (!matches) return false;
+
+  const ratio = matches.length / text.length;
+  return matches.length >= 3 && ratio >= 0.08;
 }

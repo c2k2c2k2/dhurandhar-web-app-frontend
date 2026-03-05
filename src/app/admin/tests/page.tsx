@@ -9,13 +9,21 @@ import { Button } from "@/components/ui/button";
 import { FormSelect } from "@/modules/shared/components/FormField";
 import { FiltersBar } from "@/modules/shared/components/FiltersBar";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
+import { ConfirmDialog } from "@/modules/shared/components/ConfirmDialog";
 import { ErrorState, LoadingState } from "@/modules/shared/components/States";
+import { useToast } from "@/modules/shared/components/Toast";
 import { useSubjects } from "@/modules/taxonomy/subjects/hooks";
 import { TestsTable } from "@/modules/tests/components/TestsTable";
-import { usePublishTest, useTests, useUnpublishTest } from "@/modules/tests/hooks";
+import {
+  useDeleteTest,
+  usePublishTest,
+  useTests,
+  useUnpublishTest,
+} from "@/modules/tests/hooks";
 
 export default function AdminTestsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const canEdit = hasPermission(user, "tests.crud");
   const canPublish = hasPermission(user, "tests.publish");
 
@@ -47,6 +55,26 @@ export default function AdminTestsPage() {
 
   const publishTest = usePublishTest();
   const unpublishTest = useUnpublishTest();
+  const deleteTest = useDeleteTest();
+  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
+
+  const handleDelete = React.useCallback(async () => {
+    if (!deleteTargetId) return;
+    try {
+      await deleteTest.mutateAsync(deleteTargetId);
+      toast({ title: "Test deleted" });
+      setDeleteTargetId(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete test.",
+        variant: "destructive",
+      });
+    }
+  }, [deleteTargetId, deleteTest, toast]);
 
   const tests = testList?.data ?? [];
   const total = testList?.total ?? 0;
@@ -152,8 +180,10 @@ export default function AdminTestsPage() {
             tests={tests}
             canEdit={canEdit}
             canPublish={canPublish}
+            canDelete={canEdit}
             onPublish={(testId) => publishTest.mutate(testId)}
             onUnpublish={(testId) => unpublishTest.mutate(testId)}
+            onDelete={(testId) => setDeleteTargetId(testId)}
             pagination={
               total > currentPageSize
                 ? {
@@ -167,6 +197,17 @@ export default function AdminTestsPage() {
           />
         )}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(deleteTargetId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetId(null);
+        }}
+        title="Delete this test?"
+        description="Tests with student attempts cannot be deleted. For eligible tests, this action is permanent."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
     </RequirePerm>
   );
 }

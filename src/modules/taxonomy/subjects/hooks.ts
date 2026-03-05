@@ -38,3 +38,14 @@ export function useUpdateSubject() {
     },
   });
 }
+
+export function useDeleteSubject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (subjectId: string) => api.deleteSubject(subjectId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: subjectsKey });
+      await queryClient.invalidateQueries({ queryKey: ["admin", "topics"] });
+    },
+  });
+}

@@ -50,3 +50,15 @@ export function useUpdateAdminPlan(query: AdminPlansQuery) {
     },
   });
 }
+
+export function useDeleteAdminPlan(query: AdminPlansQuery) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (planId: string) => api.deleteAdminPlan(planId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: plansKey(query) });
+      await queryClient.invalidateQueries({ queryKey: ["student", "plans"] });
+      await queryClient.invalidateQueries({ queryKey: ["student", "plans", "options"] });
+    },
+  });
+}

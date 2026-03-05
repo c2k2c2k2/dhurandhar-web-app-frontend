@@ -87,6 +87,12 @@ export async function unpublishTest(testId: string) {
   });
 }
 
+export async function deleteTest(testId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/tests/${testId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function listTestPresets() {
   const response = await apiFetch<{ data?: TestPreset[] }>(
     "/admin/tests/presets",

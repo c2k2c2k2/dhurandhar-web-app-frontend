@@ -7,12 +7,14 @@ import { RequirePerm } from "@/lib/auth/guards";
 import { hasPermission } from "@/lib/auth/permissions";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { Modal } from "@/modules/shared/components/Modal";
+import { ConfirmDialog } from "@/modules/shared/components/ConfirmDialog";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
 import { FiltersBar } from "@/modules/shared/components/FiltersBar";
 import { DataTable, type DataTableColumn } from "@/modules/shared/components/DataTable";
 import { useToast } from "@/modules/shared/components/Toast";
 import {
   useCreateTemplate,
+  useDeleteTemplate,
   useNotificationTemplates,
   useUpdateTemplate,
 } from "@/modules/notifications/hooks";
@@ -59,12 +61,14 @@ export default function AdminNotificationTemplatesPage() {
 
   const { data, isLoading, error } = useNotificationTemplates(query);
   const createTemplate = useCreateTemplate(query);
+  const deleteTemplate = useDeleteTemplate(query);
   const updateTemplate = useUpdateTemplate(query);
 
   const [editorOpen, setEditorOpen] = React.useState(false);
   const [activeTemplate, setActiveTemplate] = React.useState<NotificationTemplate | null>(
     null
   );
+  const [deleteTarget, setDeleteTarget] = React.useState<NotificationTemplate | null>(null);
   const [keyValue, setKeyValue] = React.useState("");
   const [templateChannel, setTemplateChannel] = React.useState("EMAIL");
   const [subject, setSubject] = React.useState("");
@@ -178,6 +182,24 @@ export default function AdminNotificationTemplatesPage() {
     }
   };
 
+  const handleDelete = React.useCallback(async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteTemplate.mutateAsync(deleteTarget.id);
+      toast({ title: "Template deleted" });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete template.",
+        variant: "destructive",
+      });
+    }
+  }, [deleteTarget, deleteTemplate, toast]);
+
   const columns = React.useMemo<DataTableColumn<NotificationTemplate>[]>(
     () => [
       {
@@ -205,14 +227,25 @@ export default function AdminNotificationTemplatesPage() {
         header: "",
         className: "text-right",
         render: (template) => (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => openEditor(template)}
-            disabled={!canManage}
-          >
-            Edit
-          </Button>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openEditor(template)}
+              disabled={!canManage}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeleteTarget(template)}
+              disabled={!canManage}
+            >
+              Delete
+            </Button>
+          </div>
         ),
       },
     ],
@@ -393,6 +426,17 @@ export default function AdminNotificationTemplatesPage() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Delete this template?"
+        description="Templates linked to messages or broadcasts cannot be deleted."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
     </RequirePerm>
   );
 }

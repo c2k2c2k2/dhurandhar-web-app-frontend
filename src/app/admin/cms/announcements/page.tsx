@@ -8,6 +8,7 @@ import { RequirePerm } from "@/lib/auth/guards";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/modules/shared/components/Toast";
 import { Modal } from "@/modules/shared/components/Modal";
+import { ConfirmDialog } from "@/modules/shared/components/ConfirmDialog";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
 import { ErrorState, LoadingState } from "@/modules/shared/components/States";
 import { DataTable, type DataTableColumn } from "@/modules/shared/components/DataTable";
@@ -17,6 +18,7 @@ import { CmsBlocksEditor } from "@/modules/cms/components/CmsBlocksEditor";
 import {
   useAnnouncements,
   useCreateAnnouncement,
+  useDeleteAnnouncement,
   useUpdateAnnouncement,
 } from "@/modules/cms/hooks";
 import type {
@@ -195,11 +197,13 @@ export default function AdminCmsAnnouncementsPage() {
   const pageSize = 20;
   const { data, isLoading, error } = useAnnouncements({ page, pageSize });
   const createAnnouncement = useCreateAnnouncement();
+  const deleteAnnouncement = useDeleteAnnouncement();
   const updateAnnouncement = useUpdateAnnouncement();
   const [editorOpen, setEditorOpen] = React.useState(false);
   const [activeAnnouncement, setActiveAnnouncement] = React.useState<Announcement | null>(
     null
   );
+  const [deleteTarget, setDeleteTarget] = React.useState<Announcement | null>(null);
 
   const handleSave = async (payload: AnnouncementCreateInput) => {
     try {
@@ -225,6 +229,24 @@ export default function AdminCmsAnnouncementsPage() {
       });
     }
   };
+
+  const handleDelete = React.useCallback(async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteAnnouncement.mutateAsync(deleteTarget.id);
+      toast({ title: "Announcement deleted" });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete announcement.",
+        variant: "destructive",
+      });
+    }
+  }, [deleteAnnouncement, deleteTarget, toast]);
 
   const columns = React.useMemo<DataTableColumn<Announcement>[]>(
     () => [
@@ -265,16 +287,26 @@ export default function AdminCmsAnnouncementsPage() {
         header: "",
         className: "text-right",
         render: (announcement) => (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setActiveAnnouncement(announcement);
-              setEditorOpen(true);
-            }}
-          >
-            Edit
-          </Button>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setActiveAnnouncement(announcement);
+                setEditorOpen(true);
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeleteTarget(announcement)}
+            >
+              Delete
+            </Button>
+          </div>
         ),
       },
     ],
@@ -338,6 +370,17 @@ export default function AdminCmsAnnouncementsPage() {
         initial={activeAnnouncement}
         onSave={handleSave}
         saving={createAnnouncement.isPending || updateAnnouncement.isPending}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Delete this announcement?"
+        description="This removes the announcement and linked media references."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
       />
     </RequirePerm>
   );

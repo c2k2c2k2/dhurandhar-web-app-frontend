@@ -28,15 +28,19 @@ export function NotesTable({
   subjects,
   canEdit,
   canPublish,
+  canDelete,
   onPublish,
   onUnpublish,
+  onDelete,
 }: {
   notes: NoteItem[];
   subjects: Subject[];
   canEdit: boolean;
   canPublish: boolean;
+  canDelete: boolean;
   onPublish: (noteId: string) => void;
   onUnpublish: (noteId: string) => void;
+  onDelete: (noteId: string) => void;
 }) {
   const columns = React.useMemo<DataTableColumn<NoteItem>[]>(
     () => [
@@ -107,11 +111,21 @@ export function NotesTable({
                 </Button>
               )
             ) : null}
+            {canDelete ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => onDelete(note.id)}
+              >
+                Delete
+              </Button>
+            ) : null}
           </div>
         ),
       },
     ],
-    [subjects, canEdit, canPublish, onPublish, onUnpublish]
+    [subjects, canEdit, canPublish, canDelete, onPublish, onUnpublish, onDelete]
   );
 
   return (

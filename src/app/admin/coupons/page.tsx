@@ -6,6 +6,7 @@ import { Can, RequirePerm } from "@/lib/auth/guards";
 import {
   useAdminCoupons,
   useCreateAdminCoupon,
+  useDeleteAdminCoupon,
   useUpdateAdminCoupon,
 } from "@/modules/admin-coupons/hooks";
 import type {
@@ -19,6 +20,7 @@ import {
   DataTable,
   type DataTableColumn,
 } from "@/modules/shared/components/DataTable";
+import { ConfirmDialog } from "@/modules/shared/components/ConfirmDialog";
 import { FormInput, FormSelect } from "@/modules/shared/components/FormField";
 import { Modal } from "@/modules/shared/components/Modal";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
@@ -128,6 +130,7 @@ export default function AdminCouponsPage() {
   const [metadataEntries, setMetadataEntries] = React.useState<StructuredObjectEntry[]>([]);
   const [metadataPreserved, setMetadataPreserved] = React.useState<Record<string, unknown>>({});
   const [metadataNotice, setMetadataNotice] = React.useState("");
+  const [deleteTarget, setDeleteTarget] = React.useState<AdminCoupon | null>(null);
 
   const pageSize = 20;
   const query = {
@@ -139,6 +142,7 @@ export default function AdminCouponsPage() {
   const { data, isLoading, error } = useAdminCoupons(query);
   const createCoupon = useCreateAdminCoupon(query);
   const updateCoupon = useUpdateAdminCoupon(query);
+  const deleteCoupon = useDeleteAdminCoupon(query);
 
   const openCreate = () => {
     setEditingCoupon(null);
@@ -241,6 +245,24 @@ export default function AdminCouponsPage() {
     }
   };
 
+  const handleDelete = React.useCallback(async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteCoupon.mutateAsync(deleteTarget.id);
+      toast({ title: "Coupon deleted" });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete coupon.",
+        variant: "destructive",
+      });
+    }
+  }, [deleteCoupon, deleteTarget, toast]);
+
   const coupons = data?.data ?? [];
 
   const columns = React.useMemo<DataTableColumn<AdminCoupon>[]>(
@@ -294,9 +316,19 @@ export default function AdminCouponsPage() {
         className: "text-right",
         render: (coupon) => (
           <Can perm="admin.config.write">
-            <Button variant="ghost" size="sm" onClick={() => openEdit(coupon)}>
-              Edit
-            </Button>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => openEdit(coupon)}>
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setDeleteTarget(coupon)}
+              >
+                Delete
+              </Button>
+            </div>
           </Can>
         ),
       },
@@ -496,6 +528,17 @@ export default function AdminCouponsPage() {
             </div>
           </form>
         </Modal>
+
+        <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+          title="Delete this coupon?"
+          description="Coupons linked to orders/redemptions cannot be deleted."
+          confirmLabel="Delete"
+          onConfirm={handleDelete}
+        />
       </div>
     </RequirePerm>
   );

@@ -73,6 +73,17 @@ export function useUnpublishQuestion() {
   });
 }
 
+export function useDeleteQuestion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (questionId: string) => api.deleteQuestion(questionId),
+    onSuccess: async (_data, questionId) => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "questions"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin", "question", questionId] });
+    },
+  });
+}
+
 export function useBulkImportQuestions() {
   const queryClient = useQueryClient();
   return useMutation({

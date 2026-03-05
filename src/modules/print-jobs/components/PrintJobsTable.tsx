@@ -49,12 +49,14 @@ export function PrintJobsTable({
   onDownload,
   onRetry,
   onCancel,
+  onDelete,
   pagination,
 }: {
   jobs: PrintJobItem[];
   onDownload: (jobId: string) => void;
   onRetry: (jobId: string) => void;
   onCancel: (jobId: string) => void;
+  onDelete: (jobId: string) => void;
   pagination?: DataTablePagination;
 }) {
   const columns = React.useMemo<DataTableColumn<PrintJobItem>[]>(
@@ -119,6 +121,7 @@ export function PrintJobsTable({
           const canRunNow = job.status === "QUEUED";
           const canCancel = job.status === "QUEUED" || job.status === "RUNNING";
           const canDownload = job.status === "DONE";
+          const canDelete = job.status !== "RUNNING";
           return (
             <div className="flex justify-end gap-2">
               {canDownload ? (
@@ -141,12 +144,22 @@ export function PrintJobsTable({
                   Cancel
                 </Button>
               ) : null}
+              {canDelete ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => onDelete(job.id)}
+                >
+                  Delete
+                </Button>
+              ) : null}
             </div>
           );
         },
       },
     ],
-    [onDownload, onRetry, onCancel]
+    [onDownload, onRetry, onCancel, onDelete]
   );
 
   return (

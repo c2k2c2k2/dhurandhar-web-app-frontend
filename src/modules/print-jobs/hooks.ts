@@ -75,3 +75,13 @@ export function useCancelPrintJob() {
     },
   });
 }
+
+export function useDeletePrintJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (jobId: string) => api.deletePrintJob(jobId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "print-jobs"] });
+    },
+  });
+}

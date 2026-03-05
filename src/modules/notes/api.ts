@@ -70,3 +70,9 @@ export async function unpublishNote(noteId: string) {
     method: "POST",
   });
 }
+
+export async function deleteNote(noteId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/notes/${noteId}`, {
+    method: "DELETE",
+  });
+}

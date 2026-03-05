@@ -9,14 +9,22 @@ import { Button } from "@/components/ui/button";
 import { FormSelect } from "@/modules/shared/components/FormField";
 import { FiltersBar } from "@/modules/shared/components/FiltersBar";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
+import { ConfirmDialog } from "@/modules/shared/components/ConfirmDialog";
 import { ErrorState, LoadingState } from "@/modules/shared/components/States";
+import { useToast } from "@/modules/shared/components/Toast";
 import { useSubjects } from "@/modules/taxonomy/subjects/hooks";
 import { useTopics } from "@/modules/taxonomy/topics/hooks";
 import { NotesTable } from "@/modules/notes/components/NotesTable";
-import { useNotes, usePublishNote, useUnpublishNote } from "@/modules/notes/hooks";
+import {
+  useDeleteNote,
+  useNotes,
+  usePublishNote,
+  useUnpublishNote,
+} from "@/modules/notes/hooks";
 
 export default function AdminNotesPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const canEdit = hasPermission(user, "notes.write");
   const canPublish = hasPermission(user, "notes.publish");
 
@@ -46,6 +54,26 @@ export default function AdminNotesPage() {
 
   const publishNote = usePublishNote();
   const unpublishNote = useUnpublishNote();
+  const deleteNote = useDeleteNote();
+  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
+
+  const handleDelete = React.useCallback(async () => {
+    if (!deleteTargetId) return;
+    try {
+      await deleteNote.mutateAsync(deleteTargetId);
+      toast({ title: "Note deleted" });
+      setDeleteTargetId(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete note.",
+        variant: "destructive",
+      });
+    }
+  }, [deleteNote, deleteTargetId, toast]);
 
   return (
     <RequirePerm perm="notes.read">
@@ -130,11 +158,24 @@ export default function AdminNotesPage() {
             subjects={subjects || []}
             canEdit={canEdit}
             canPublish={canPublish}
+            canDelete={canEdit}
             onPublish={(noteId) => publishNote.mutate(noteId)}
             onUnpublish={(noteId) => unpublishNote.mutate(noteId)}
+            onDelete={(noteId) => setDeleteTargetId(noteId)}
           />
         )}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(deleteTargetId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetId(null);
+        }}
+        title="Delete this note?"
+        description="This will permanently remove the note and its linked access records."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
     </RequirePerm>
   );
 }

@@ -8,11 +8,13 @@ import { PageHeader } from "@/modules/shared/components/PageHeader";
 import { FiltersBar } from "@/modules/shared/components/FiltersBar";
 import { FormSelect } from "@/modules/shared/components/FormField";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/modules/shared/components/ConfirmDialog";
 import { ErrorState, LoadingState } from "@/modules/shared/components/States";
+import { useToast } from "@/modules/shared/components/Toast";
 import { TaxonomyTabs } from "@/modules/taxonomy/components/TaxonomyTabs";
 import { useSubjects } from "@/modules/taxonomy/subjects/hooks";
 import type { Subject } from "@/modules/taxonomy/subjects/types";
-import { useTopics } from "@/modules/taxonomy/topics/hooks";
+import { useDeleteTopic, useTopics } from "@/modules/taxonomy/topics/hooks";
 import type { Topic } from "@/modules/taxonomy/topics/types";
 import { TopicFormDialog } from "@/modules/taxonomy/topics/TopicFormDialog";
 import { TopicTree } from "@/modules/taxonomy/topics/TopicTree";
@@ -27,6 +29,7 @@ function getTopicName(topic: Topic) {
 
 export default function AdminTopicsPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const subjectIdParam = searchParams.get("subjectId") || "";
   const shouldCreate = searchParams.get("create") === "1";
@@ -48,11 +51,13 @@ export default function AdminTopicsPage() {
     isLoading: topicsLoading,
     error: topicsError,
   } = useTopics(selectedSubjectId);
+  const deleteTopic = useDeleteTopic(selectedSubjectId || "");
 
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Topic | null>(null);
   const [defaultParent, setDefaultParent] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
+  const [deleteTarget, setDeleteTarget] = React.useState<Topic | null>(null);
 
   React.useEffect(() => {
     if (shouldCreate) {
@@ -73,6 +78,24 @@ export default function AdminTopicsPage() {
     topics?.filter((topic) =>
       getTopicName(topic).toLowerCase().includes(query.toLowerCase())
     ) || [];
+
+  const handleDelete = React.useCallback(async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteTopic.mutateAsync(deleteTarget.id);
+      toast({ title: "Topic deleted" });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete topic.",
+        variant: "destructive",
+      });
+    }
+  }, [deleteTarget, deleteTopic, toast]);
 
   return (
     <RequirePerm perm="content.manage">
@@ -158,6 +181,7 @@ export default function AdminTopicsPage() {
               setDefaultParent(topic?.id ?? null);
               setOpen(true);
             }}
+            onDelete={(topic) => setDeleteTarget(topic)}
           />
         )}
         {selectedSubjectId ? (
@@ -171,6 +195,17 @@ export default function AdminTopicsPage() {
           />
         ) : null}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Delete this topic?"
+        description="Topics can be deleted only when they have no children and no linked notes, questions, or practice data."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
     </RequirePerm>
   );
 }

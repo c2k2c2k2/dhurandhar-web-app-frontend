@@ -46,6 +46,16 @@ export function useUpdateTemplate(query: TemplatesQuery) {
   });
 }
 
+export function useDeleteTemplate(query: TemplatesQuery) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (templateId: string) => api.deleteTemplate(templateId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: templatesKey(query) });
+    },
+  });
+}
+
 const messagesKey = (query: MessagesQuery) => [
   "admin",
   "notifications",
@@ -124,6 +134,16 @@ export function useCancelBroadcast(query: BroadcastsQuery) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (broadcastId: string) => api.cancelBroadcast(broadcastId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: broadcastsKey(query) });
+    },
+  });
+}
+
+export function useDeleteBroadcast(query: BroadcastsQuery) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (broadcastId: string) => api.deleteBroadcast(broadcastId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: broadcastsKey(query) });
     },

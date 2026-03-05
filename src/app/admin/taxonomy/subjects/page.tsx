@@ -7,9 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
 import { FiltersBar } from "@/modules/shared/components/FiltersBar";
+import { ConfirmDialog } from "@/modules/shared/components/ConfirmDialog";
 import { ErrorState, LoadingState } from "@/modules/shared/components/States";
+import { useToast } from "@/modules/shared/components/Toast";
 import { TaxonomyTabs } from "@/modules/taxonomy/components/TaxonomyTabs";
-import { useSubjects } from "@/modules/taxonomy/subjects/hooks";
+import {
+  useDeleteSubject,
+  useSubjects,
+} from "@/modules/taxonomy/subjects/hooks";
 import type { Subject } from "@/modules/taxonomy/subjects/types";
 import { SubjectFormDialog } from "@/modules/taxonomy/subjects/SubjectFormDialog";
 import { SubjectsTable } from "@/modules/taxonomy/subjects/SubjectsTable";
@@ -20,13 +25,16 @@ function getSubjectName(subject: Subject) {
 
 export default function AdminSubjectsPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const shouldCreate = searchParams.get("create") === "1";
 
   const { data, isLoading, error } = useSubjects();
+  const deleteSubject = useDeleteSubject();
   const [query, setQuery] = React.useState("");
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Subject | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<Subject | null>(null);
 
   React.useEffect(() => {
     if (shouldCreate) {
@@ -46,6 +54,24 @@ export default function AdminSubjectsPage() {
   const filtered = subjects.filter((subject) =>
     getSubjectName(subject).toLowerCase().includes(query.toLowerCase())
   );
+
+  const handleDelete = React.useCallback(async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteSubject.mutateAsync(deleteTarget.id);
+      toast({ title: "Subject deleted" });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description:
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : "Unable to delete subject.",
+        variant: "destructive",
+      });
+    }
+  }, [deleteSubject, deleteTarget, toast]);
 
   return (
     <RequirePerm perm="content.manage">
@@ -92,6 +118,7 @@ export default function AdminSubjectsPage() {
               setEditing(subject);
               setOpen(true);
             }}
+            onDelete={(subject) => setDeleteTarget(subject)}
           />
         )}
         <SubjectFormDialog
@@ -100,6 +127,17 @@ export default function AdminSubjectsPage() {
           subject={editing}
         />
       </div>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Delete this subject?"
+        description="Subjects can be deleted only when no topics, notes, questions, tests, or practice sessions are linked."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
     </RequirePerm>
   );
 }

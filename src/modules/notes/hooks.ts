@@ -65,3 +65,13 @@ export function useUnpublishNote() {
     },
   });
 }
+
+export function useDeleteNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (noteId: string) => api.deleteNote(noteId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "notes"] });
+    },
+  });
+}

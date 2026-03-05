@@ -45,3 +45,9 @@ export async function updateAdminCoupon(
     body: JSON.stringify(payload),
   });
 }
+
+export async function deleteAdminCoupon(couponId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/coupons/${couponId}`, {
+    method: "DELETE",
+  });
+}

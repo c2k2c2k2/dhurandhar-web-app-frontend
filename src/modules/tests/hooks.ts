@@ -77,3 +77,13 @@ export function useUnpublishTest() {
     },
   });
 }
+
+export function useDeleteTest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (testId: string) => api.deleteTest(testId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "tests"] });
+    },
+  });
+}
