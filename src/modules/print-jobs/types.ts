@@ -16,6 +16,7 @@ export type PrintJobConfig = {
   title?: string;
   subtitle?: string;
   includeAnswerKey?: boolean;
+  durationMinutes?: number;
   testId?: string;
   questionIds?: string[];
 };
@@ -45,12 +46,14 @@ export type PrintJobCreateInput = {
   testId?: string;
   questionIds?: string[];
   includeAnswerKey?: boolean;
+  durationMinutes?: number;
   title?: string;
   subtitle?: string;
 };
 
 export type PrintTestJobInput = {
   includeAnswerKey?: boolean;
+  durationMinutes?: number;
   title?: string;
   subtitle?: string;
 };
@@ -61,6 +64,7 @@ export type PrintPracticeJobInput = {
   topicIds?: string[];
   difficulty?: QuestionDifficulty;
   includeAnswerKey?: boolean;
+  durationMinutes?: number;
   title?: string;
   subtitle?: string;
 };

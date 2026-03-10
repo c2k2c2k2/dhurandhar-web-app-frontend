@@ -9,7 +9,8 @@ import type { Subject } from "@/modules/taxonomy/subjects/types";
 import type { Topic } from "@/modules/taxonomy/topics/types";
 import type { QuestionItem } from "../types";
 import {
-  hasEncodedMarathiMarker,
+  getLikelyLegacyMarathiFontKey,
+  getMarathiFontKeyFromValue,
   isLikelyLegacyMarathiEncodedText,
   MARATHI_FONT_CLASSES,
 } from "../marathi-fonts";
@@ -78,15 +79,19 @@ export function QuestionsTable({
         header: "Question",
         render: (question) => {
           const snippet = truncateText(extractText(question.statementJson), 140);
-          const useLegacyMarathiFont =
-            hasEncodedMarathiMarker(question.statementJson) ||
-            isLikelyLegacyMarathiEncodedText(snippet);
+          const legacyFontKey =
+            getMarathiFontKeyFromValue(question.statementJson) ||
+            getLikelyLegacyMarathiFontKey(snippet);
+          const useLegacyMarathiFont = Boolean(
+            legacyFontKey || isLikelyLegacyMarathiEncodedText(snippet)
+          );
           return (
             <div className="space-y-1">
               <p
                 className={cn(
                   "font-medium",
-                  useLegacyMarathiFont && MARATHI_FONT_CLASSES["shree-dev"]
+                  useLegacyMarathiFont &&
+                    MARATHI_FONT_CLASSES[legacyFontKey ?? "shree-dev"]
                 )}
               >
                 {canEdit ? (

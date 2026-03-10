@@ -3,7 +3,7 @@
 import * as React from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/modules/shared/components/Toast";
 import {
@@ -17,6 +17,7 @@ import { useSubjects } from "@/modules/taxonomy/subjects/hooks";
 import { useTopics } from "@/modules/taxonomy/topics/hooks";
 import type { Topic } from "@/modules/taxonomy/topics/types";
 import { useTests } from "@/modules/tests/hooks";
+import type { TestConfig } from "@/modules/tests/types";
 import {
   useCreatePracticePrintJob,
   useCreateTestPrintJob,
@@ -24,6 +25,7 @@ import {
 
 const TestPrintSchema = z.object({
   testId: z.string().min(1, "Select a test."),
+  durationMinutes: z.number().int().positive().optional(),
   title: z.string().optional(),
   subtitle: z.string().optional(),
   includeAnswerKey: z.boolean().optional(),
@@ -36,6 +38,7 @@ const PracticePrintSchema = z.object({
   subjectId: z.string().optional(),
   topicIds: z.array(z.string()).optional(),
   difficulty: z.enum(["EASY", "MEDIUM", "HARD"]).optional(),
+  durationMinutes: z.number().int().positive().optional(),
   title: z.string().optional(),
   subtitle: z.string().optional(),
   includeAnswerKey: z.boolean().optional(),
@@ -45,6 +48,34 @@ type PracticePrintValues = z.infer<typeof PracticePrintSchema>;
 
 function getTopicName(topic: Topic) {
   return topic.name || topic.title || "Untitled";
+}
+
+function resolveTestDuration(config: TestConfig | undefined): number | undefined {
+  if (
+    config &&
+    typeof config.durationMinutes === "number" &&
+    Number.isFinite(config.durationMinutes) &&
+    config.durationMinutes > 0
+  ) {
+    return config.durationMinutes;
+  }
+
+  if (!Array.isArray(config?.sections)) {
+    return undefined;
+  }
+
+  const sectionDurations = config.sections
+    .map((section) => section?.durationMinutes)
+    .filter(
+      (value): value is number =>
+        typeof value === "number" && Number.isFinite(value) && value > 0
+    );
+
+  if (!sectionDurations.length) {
+    return undefined;
+  }
+
+  return sectionDurations.reduce((sum, value) => sum + value, 0);
 }
 
 export function PrintJobCreator() {
@@ -60,6 +91,7 @@ export function PrintJobCreator() {
     resolver: zodResolver(TestPrintSchema),
     defaultValues: {
       testId: "",
+      durationMinutes: undefined,
       title: "",
       subtitle: "",
       includeAnswerKey: false,
@@ -73,22 +105,49 @@ export function PrintJobCreator() {
       subjectId: "",
       topicIds: [],
       difficulty: undefined,
+      durationMinutes: 60,
       title: "",
       subtitle: "",
       includeAnswerKey: false,
     },
   });
 
-  const practiceSubjectId = practiceForm.watch("subjectId");
+  const tests = React.useMemo(() => testList?.data ?? [], [testList]);
+  const selectedTestId = useWatch({
+    control: testForm.control,
+    name: "testId",
+  });
+  const practiceSubjectId = useWatch({
+    control: practiceForm.control,
+    name: "subjectId",
+  });
+  const selectedDifficulty = useWatch({
+    control: practiceForm.control,
+    name: "difficulty",
+  });
+  const selectedTopicIds = useWatch({
+    control: practiceForm.control,
+    name: "topicIds",
+  });
   const { data: topics, isLoading: topicsLoading } = useTopics(
     practiceSubjectId || undefined
   );
 
   React.useEffect(() => {
+    if (!selectedTestId) {
+      testForm.setValue("durationMinutes", undefined);
+      return;
+    }
+
+    const selectedTest = tests.find((test) => test.id === selectedTestId);
+    testForm.setValue("durationMinutes", resolveTestDuration(selectedTest?.configJson));
+  }, [selectedTestId, testForm, tests]);
+
+  React.useEffect(() => {
     practiceForm.setValue("topicIds", []);
   }, [practiceSubjectId, practiceForm]);
 
-  const topicOptions = topics || [];
+  const topicOptions = React.useMemo(() => topics ?? [], [topics]);
   const topicList = React.useMemo(() => {
     const byId = new Map(topicOptions.map((topic) => [topic.id, topic]));
     const buildLabel = (topic: Topic) => {
@@ -116,13 +175,20 @@ export function PrintJobCreator() {
       await createTestJob.mutateAsync({
         testId: values.testId,
         input: {
+          durationMinutes: values.durationMinutes,
           title: values.title || undefined,
           subtitle: values.subtitle || undefined,
           includeAnswerKey: values.includeAnswerKey,
         },
       });
       toast({ title: "Test print job queued" });
-      testForm.reset({ testId: "", title: "", subtitle: "", includeAnswerKey: false });
+      testForm.reset({
+        testId: "",
+        durationMinutes: undefined,
+        title: "",
+        subtitle: "",
+        includeAnswerKey: false,
+      });
     } catch (err) {
       toast({
         title: "Unable to create job",
@@ -142,6 +208,7 @@ export function PrintJobCreator() {
         subjectId: values.subjectId || undefined,
         topicIds: values.topicIds?.length ? values.topicIds : undefined,
         difficulty: values.difficulty,
+        durationMinutes: values.durationMinutes,
         title: values.title || undefined,
         subtitle: values.subtitle || undefined,
         includeAnswerKey: values.includeAnswerKey,
@@ -152,6 +219,7 @@ export function PrintJobCreator() {
         subjectId: "",
         topicIds: [],
         difficulty: undefined,
+        durationMinutes: 60,
         title: "",
         subtitle: "",
         includeAnswerKey: false,
@@ -167,8 +235,6 @@ export function PrintJobCreator() {
       });
     }
   };
-
-  const tests = testList?.data ?? [];
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -192,7 +258,7 @@ export function PrintJobCreator() {
           >
             <FormSelect
               label="Test"
-              value={testForm.watch("testId")}
+              value={selectedTestId || ""}
               onChange={(event) => testForm.setValue("testId", event.target.value)}
               error={testForm.formState.errors.testId?.message}
             >
@@ -203,6 +269,22 @@ export function PrintJobCreator() {
                 </option>
               ))}
             </FormSelect>
+            <FormInput
+              label="Time (Minutes)"
+              type="number"
+              placeholder="Leave blank to use test duration"
+              description="Printed in the paper header. You can override the test duration here."
+              error={testForm.formState.errors.durationMinutes?.message}
+              {...testForm.register("durationMinutes", {
+                setValueAs: (value) => {
+                  if (value === "" || value === null || value === undefined) {
+                    return undefined;
+                  }
+                  const parsed = Number(value);
+                  return Number.isNaN(parsed) ? undefined : parsed;
+                },
+              })}
+            />
             <FormInput
               label="Title"
               placeholder="Optional title"
@@ -286,7 +368,7 @@ export function PrintJobCreator() {
             </FormSelect>
             <FormSelect
               label="Difficulty"
-              value={practiceForm.watch("difficulty") || ""}
+              value={selectedDifficulty || ""}
               onChange={(event) =>
                 practiceForm.setValue(
                   "difficulty",
@@ -299,11 +381,26 @@ export function PrintJobCreator() {
               <option value="MEDIUM">Medium</option>
               <option value="HARD">Hard</option>
             </FormSelect>
+            <FormInput
+              label="Time (Minutes)"
+              type="number"
+              description="Printed in the paper header. Adjust per print job."
+              error={practiceForm.formState.errors.durationMinutes?.message}
+              {...practiceForm.register("durationMinutes", {
+                setValueAs: (value) => {
+                  if (value === "" || value === null || value === undefined) {
+                    return undefined;
+                  }
+                  const parsed = Number(value);
+                  return Number.isNaN(parsed) ? undefined : parsed;
+                },
+              })}
+            />
             <MultiSelectField
               label="Topics"
               description="Optional topic filters."
               items={topicList}
-              value={practiceForm.watch("topicIds") || []}
+              value={selectedTopicIds || []}
               onChange={(next) => practiceForm.setValue("topicIds", next)}
               loading={topicsLoading}
               emptyLabel="No topics found for this subject."

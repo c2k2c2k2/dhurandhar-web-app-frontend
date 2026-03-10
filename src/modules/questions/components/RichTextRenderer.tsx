@@ -6,10 +6,15 @@ import { Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAssetUrl } from "@/lib/api/assets";
 import {
+  getLikelyLegacyMarathiFontKey,
+  MARATHI_FONT_CLASSES,
+} from "../marathi-fonts";
+import {
   decodeHtmlEntities,
   extractHtml,
   extractImageAssetId,
   extractText,
+  extractTextFromHtml,
   MATH_BLOCK_ATTR,
   MATH_INLINE_ATTR,
   resolveLocalizedContentStrict,
@@ -74,6 +79,26 @@ function renderMathInHtml(html: string): string {
   }
 }
 
+function hasExplicitLegacyMarathiFontHint(value: string): boolean {
+  return /(?:data-question-font\s*=\s*["'](?:shree-dev|surekh|sulekha)["'])|(?:font-marathi-(?:encoded|legacy-marathi|surekh|sulekha|shree-dev))/i.test(
+    value
+  );
+}
+
+function applyLegacyMarathiFontHint(html: string): string {
+  const normalized = html.trim();
+  if (!normalized || hasExplicitLegacyMarathiFontHint(normalized)) {
+    return normalized;
+  }
+
+  const fontKey = getLikelyLegacyMarathiFontKey(extractTextFromHtml(normalized));
+  if (!fontKey) {
+    return normalized;
+  }
+
+  return `<div class="${MARATHI_FONT_CLASSES[fontKey]}" data-question-font="${fontKey}">${normalized}</div>`;
+}
+
 export function RichTextRenderer({
   html,
   fallbackText,
@@ -84,8 +109,12 @@ export function RichTextRenderer({
   className?: string;
 }) {
   const renderedHtml = React.useMemo(
-    () => (html ? renderMathInHtml(html) : ""),
+    () => (html ? applyLegacyMarathiFontHint(renderMathInHtml(html)) : ""),
     [html],
+  );
+  const fallbackFontKey = React.useMemo(
+    () => getLikelyLegacyMarathiFontKey(fallbackText),
+    [fallbackText]
   );
 
   if (renderedHtml) {
@@ -98,7 +127,17 @@ export function RichTextRenderer({
   }
 
   if (fallbackText) {
-    return <p className={cn("text-sm leading-relaxed", className)}>{fallbackText}</p>;
+    return (
+      <p
+        className={cn(
+          "text-sm leading-relaxed",
+          fallbackFontKey && MARATHI_FONT_CLASSES[fallbackFontKey],
+          className
+        )}
+      >
+        {fallbackText}
+      </p>
+    );
   }
 
   return null;

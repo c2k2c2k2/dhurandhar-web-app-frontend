@@ -41,6 +41,8 @@ const FONT_HINTS: Record<MarathiEncodedFontKey, readonly string[]> = {
 };
 
 const DEVANAGARI_CHAR_PATTERN = /[\u0900-\u097F]/;
+const SUREKH_GLYPH_PATTERN =
+  /[\u00A1-\u00FF\u0152\u0153\u0160\u0161\u0178\u017D\u017E\u02C6\u02DC\u2013-\u2022\u2026\u2030\u2039\u203A\u20AC]/g;
 const LEGACY_GLYPH_PATTERN =
   /[À-ÿ†‡•–—…‰‹›€™„‚ƒˆ˜¯±÷×°¼½¾¿¢£¤¥¦§©®µ¶¸¹ºª«»¬]/g;
 
@@ -89,31 +91,86 @@ export function getMarathiFontKeyFromElement(
 }
 
 export function hasEncodedMarathiMarker(value: unknown): boolean {
-  if (!value) return false;
+  return getMarathiFontKeyFromValue(value) !== null;
+}
+
+export function getLikelyLegacyMarathiFontKey(
+  value: string | null | undefined
+): MarathiEncodedFontKey | null {
+  const text = value?.trim() ?? "";
+  if (!text) return null;
+
+  const hintedFont = getMarathiFontKeyFromHint(text);
+  if (hintedFont) {
+    return hintedFont;
+  }
+
+  if (DEVANAGARI_CHAR_PATTERN.test(text)) {
+    return null;
+  }
+
+  const surekhMatches = text.match(SUREKH_GLYPH_PATTERN);
+  if (
+    surekhMatches &&
+    surekhMatches.length >= Math.max(3, Math.floor(text.length * 0.12))
+  ) {
+    return "surekh";
+  }
+
+  const legacyMatches = text.match(LEGACY_GLYPH_PATTERN);
+  if (!legacyMatches) {
+    return null;
+  }
+
+  const ratio = legacyMatches.length / text.length;
+  return legacyMatches.length >= 3 && ratio >= 0.08
+    ? DEFAULT_MARATHI_ENCODED_FONT
+    : null;
+}
+
+function findMarathiFontKey(
+  value: unknown,
+  detector: (input: string) => MarathiEncodedFontKey | null
+): MarathiEncodedFontKey | null {
+  if (!value) return null;
 
   if (typeof value === "string") {
-    return getMarathiFontKeyFromHint(value) !== null;
+    return detector(value);
   }
 
   if (Array.isArray(value)) {
-    return value.some((entry) => hasEncodedMarathiMarker(entry));
+    for (const entry of value) {
+      const fontKey = findMarathiFontKey(entry, detector);
+      if (fontKey) {
+        return fontKey;
+      }
+    }
+    return null;
   }
 
   if (!isRecord(value)) {
-    return false;
+    return null;
   }
 
-  return Object.values(value).some((entry) => hasEncodedMarathiMarker(entry));
+  for (const entry of Object.values(value)) {
+    const fontKey = findMarathiFontKey(entry, detector);
+    if (fontKey) {
+      return fontKey;
+    }
+  }
+
+  return null;
+}
+
+export function getMarathiFontKeyFromValue(
+  value: unknown
+): MarathiEncodedFontKey | null {
+  return (
+    findMarathiFontKey(value, getMarathiFontKeyFromHint) ??
+    findMarathiFontKey(value, getLikelyLegacyMarathiFontKey)
+  );
 }
 
 export function isLikelyLegacyMarathiEncodedText(value: string | null | undefined): boolean {
-  const text = value?.trim() ?? "";
-  if (!text) return false;
-  if (DEVANAGARI_CHAR_PATTERN.test(text)) return false;
-
-  const matches = text.match(LEGACY_GLYPH_PATTERN);
-  if (!matches) return false;
-
-  const ratio = matches.length / text.length;
-  return matches.length >= 3 && ratio >= 0.08;
+  return getLikelyLegacyMarathiFontKey(value) !== null;
 }

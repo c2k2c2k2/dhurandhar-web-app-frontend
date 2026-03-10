@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { FormField } from "@/modules/shared/components/FormField";
 import {
   DEFAULT_MARATHI_ENCODED_FONT,
+  getLikelyLegacyMarathiFontKey,
   getMarathiFontKeyFromElement,
   getMarathiFontKeyFromHint,
   MARATHI_FONT_CLASSES,
@@ -93,10 +94,65 @@ const DEFAULT_TABLE_DRAFT: TableDraft = {
   cols: 2,
   withHeaderRow: true,
 };
+const MARATHI_TYPING_MODE_STORAGE_KEY = "dhurandhar.marathiTypingMode";
 
 function clampTableDimension(value: number, fallback: number): number {
   if (!Number.isFinite(value)) return fallback;
   return Math.min(10, Math.max(1, Math.floor(value)));
+}
+
+function readStoredMarathiTypingMode(): MarathiTypingMode | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const stored = window.localStorage.getItem(MARATHI_TYPING_MODE_STORAGE_KEY);
+  if (stored === "unicode" || stored === "shree-dev" || stored === "surekh") {
+    return stored;
+  }
+
+  return null;
+}
+
+function persistMarathiTypingMode(mode: MarathiTypingMode) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(MARATHI_TYPING_MODE_STORAGE_KEY, mode);
+}
+
+function wrapTextNodesWithFontHint(
+  element: HTMLElement,
+  fontKey: MarathiEncodedFontKey
+) {
+  const document = element.ownerDocument;
+
+  Array.from(element.childNodes).forEach((child) => {
+    if (child.nodeType === 3) {
+      const text = child.textContent ?? "";
+      if (!text.trim()) {
+        return;
+      }
+
+      const span = document.createElement("span");
+      span.textContent = text;
+      span.setAttribute("data-question-font", fontKey);
+      span.className = MARATHI_FONT_CLASSES[fontKey];
+      child.replaceWith(span);
+      return;
+    }
+
+    if (!(child instanceof HTMLElement)) {
+      return;
+    }
+
+    if (getMarathiFontKeyFromElement(child)) {
+      return;
+    }
+
+    wrapTextNodesWithFontHint(child, fontKey);
+  });
 }
 
 function normalizePastedHtml(html: string): string {
@@ -135,6 +191,7 @@ function normalizePastedHtml(html: string): string {
 
       node.setAttribute("data-question-font", fontKey);
       node.classList.add(...MARATHI_FONT_CLASSES[fontKey].split(/\s+/));
+      wrapTextNodesWithFontHint(node, fontKey);
     });
 
     return document.body.innerHTML;
@@ -462,7 +519,9 @@ export function RichTextEditor({
   language = "en",
 }: RichTextEditorProps) {
   const marathiEditor = language === "mr";
-  const [typingMode, setTypingMode] = React.useState<MarathiTypingMode>("unicode");
+  const [typingMode, setTypingMode] = React.useState<MarathiTypingMode>(
+    () => readStoredMarathiTypingMode() ?? "unicode"
+  );
   const [equationMode, setEquationMode] = React.useState<EquationMode>("inline");
   const [equationPanelOpen, setEquationPanelOpen] = React.useState(false);
   const [tablePanelOpen, setTablePanelOpen] = React.useState(false);
@@ -543,6 +602,10 @@ export function RichTextEditor({
 
       event.preventDefault();
       editor.chain().focus().insertContent(detectedHtml).run();
+      const detectedFont = getLikelyLegacyMarathiFontKey(text);
+      if (detectedFont) {
+        setTypingMode(detectedFont);
+      }
     };
 
     const dom = editor.view.dom;
@@ -574,7 +637,10 @@ export function RichTextEditor({
     };
 
     const syncModeFromSelection = () => {
-      setTypingMode(resolveTypingMode());
+      const nextMode = resolveTypingMode();
+      setTypingMode((currentMode) =>
+        nextMode === "unicode" && editor.isEmpty ? currentMode : nextMode
+      );
     };
 
     syncModeFromSelection();
@@ -613,6 +679,14 @@ export function RichTextEditor({
       : nextMark.addToSet(marks);
     editor.view.dispatch(state.tr.setStoredMarks(nextMarks));
   }, [editor, marathiEditor, typingMode]);
+
+  React.useEffect(() => {
+    if (!marathiEditor) {
+      return;
+    }
+
+    persistMarathiTypingMode(typingMode);
+  }, [marathiEditor, typingMode]);
 
   React.useEffect(() => {
     if (!equationPanelOpen) {
