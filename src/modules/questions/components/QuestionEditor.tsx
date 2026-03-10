@@ -59,6 +59,50 @@ const LANGUAGE_MODES = [
   },
 ];
 
+const NEW_QUESTION_PREFS_STORAGE_KEY = "dhurandhar:admin:question-editor:new-prefs:v1";
+
+type NewQuestionEditorPrefs = {
+  subjectId?: string;
+  topicId?: string;
+  type?: QuestionFormValues["type"];
+  difficulty?: QuestionFormValues["difficulty"];
+  languageMode?: QuestionFormValues["languageMode"];
+};
+
+function readNewQuestionPrefs(): NewQuestionEditorPrefs | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(NEW_QUESTION_PREFS_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as NewQuestionEditorPrefs | null;
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeNewQuestionPrefs(value: NewQuestionEditorPrefs) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(NEW_QUESTION_PREFS_STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // Ignore storage write errors.
+  }
+}
+
 type LocalizedContentInput = {
   text?: string;
   html?: string;
@@ -292,6 +336,7 @@ export function QuestionEditor({
   const { user } = useAuth();
   const canPublish = hasPermission(user, "questions.publish");
   const isEdit = Boolean(questionId);
+  const [prefsHydrated, setPrefsHydrated] = React.useState(false);
 
   const [previewUrls, setPreviewUrls] = React.useState<Record<string, string | null>>({});
   const [questionPreviewOpen, setQuestionPreviewOpen] = React.useState(false);
@@ -318,7 +363,7 @@ export function QuestionEditor({
       topicId: initialTopicId ?? "",
       type: "SINGLE_CHOICE",
       difficulty: "MEDIUM",
-      languageMode: "ENGLISH",
+      languageMode: "MARATHI",
       statementEn: createEmptyContent(),
       statementMr: createEmptyContent(),
       optionsEn: createEmptyOptions(),
@@ -338,6 +383,10 @@ export function QuestionEditor({
   }) as QuestionFormValues;
 
   const selectedSubjectId = form.watch("subjectId");
+  const selectedTopicId = form.watch("topicId");
+  const selectedDifficulty = form.watch("difficulty");
+  const currentType = form.watch("type");
+  const languageMode = form.watch("languageMode");
   const { data: topics } = useTopics(selectedSubjectId || undefined);
 
   const createQuestion = useCreateQuestion();
@@ -354,10 +403,36 @@ export function QuestionEditor({
   }, []);
 
   React.useEffect(() => {
-    if (!isEdit && subjects?.length && !form.getValues("subjectId")) {
+    if (isEdit) {
+      setPrefsHydrated(true);
+      return;
+    }
+
+    const stored = readNewQuestionPrefs();
+    const nextSubjectId = initialSubjectId || stored?.subjectId || "";
+    const nextTopicId = initialTopicId || stored?.topicId || "";
+
+    form.reset({
+      ...form.getValues(),
+      subjectId: nextSubjectId,
+      topicId: nextTopicId,
+      type: stored?.type ?? form.getValues("type"),
+      difficulty: stored?.difficulty ?? form.getValues("difficulty"),
+      languageMode: stored?.languageMode ?? "MARATHI",
+    });
+
+    setPrefsHydrated(true);
+  }, [form, initialSubjectId, initialTopicId, isEdit]);
+
+  React.useEffect(() => {
+    if (!prefsHydrated || isEdit) {
+      return;
+    }
+
+    if (subjects?.length && !form.getValues("subjectId")) {
       form.setValue("subjectId", initialSubjectId ?? subjects[0].id);
     }
-  }, [subjects, form, isEdit, initialSubjectId]);
+  }, [subjects, form, isEdit, initialSubjectId, prefsHydrated]);
 
   React.useEffect(() => {
     if (isEdit && question) {
@@ -382,6 +457,39 @@ export function QuestionEditor({
       });
     };
   }, [previewUrls]);
+
+  React.useEffect(() => {
+    if (!prefsHydrated || isEdit) {
+      return;
+    }
+
+    writeNewQuestionPrefs({
+      subjectId: selectedSubjectId || undefined,
+      topicId: selectedTopicId || undefined,
+      type: currentType,
+      difficulty: selectedDifficulty,
+      languageMode,
+    });
+  }, [
+    currentType,
+    isEdit,
+    languageMode,
+    prefsHydrated,
+    selectedDifficulty,
+    selectedSubjectId,
+    selectedTopicId,
+  ]);
+
+  React.useEffect(() => {
+    if (!selectedTopicId || !topics?.length) {
+      return;
+    }
+
+    const topicExists = topics.some((topic) => topic.id === selectedTopicId);
+    if (!topicExists) {
+      form.setValue("topicId", "");
+    }
+  }, [form, selectedTopicId, topics]);
 
   const getPreviewSrc = React.useCallback(
     (previewKey: string, imageAssetId?: string) =>
@@ -478,8 +586,6 @@ export function QuestionEditor({
 
   const subjectOptions = subjects || [];
   const topicOptions = topics || [];
-  const currentType = form.watch("type");
-  const languageMode = form.watch("languageMode");
   const showEnglish = languageMode !== "MARATHI";
   const showMarathi = languageMode !== "ENGLISH";
   const correctOptionIndex = form.watch("correctOptionIndex");
