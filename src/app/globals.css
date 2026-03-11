@@ -228,9 +228,43 @@ html {
   }
 }
 
+@keyframes note-page-turn-next {
+  0% {
+    opacity: 0.78;
+    transform: perspective(1600px) rotateY(-9deg) translateX(24px) scale(0.988);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1600px) rotateY(0deg) translateX(0) scale(1);
+  }
+}
+
+@keyframes note-page-turn-prev {
+  0% {
+    opacity: 0.78;
+    transform: perspective(1600px) rotateY(9deg) translateX(-24px) scale(0.988);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1600px) rotateY(0deg) translateX(0) scale(1);
+  }
+}
+
 @layer utilities {
   .animate-fade-up {
     animation: fade-up 0.8s ease both;
+  }
+
+  .animate-note-page-turn-next {
+    animation: note-page-turn-next 0.28s ease both;
+    transform-origin: left center;
+    backface-visibility: hidden;
+  }
+
+  .animate-note-page-turn-prev {
+    animation: note-page-turn-prev 0.28s ease both;
+    transform-origin: right center;
+    backface-visibility: hidden;
   }
 }
 

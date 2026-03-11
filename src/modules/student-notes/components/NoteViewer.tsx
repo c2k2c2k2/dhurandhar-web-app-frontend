@@ -4,8 +4,6 @@ import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   AlertTriangle,
-  RefreshCcw,
-  Shield,
   FileText,
   Lock,
 } from "lucide-react";
@@ -14,12 +12,12 @@ import { useStudentAccess } from "@/modules/student-auth/StudentAuthProvider";
 import {
   useCreateViewSession,
   useNote,
+  useNoteReadingProgress,
   useResetViewSessions,
   useWatermark,
 } from "@/modules/student-notes/hooks";
 import { PaywallCard } from "@/modules/student-notes/components/PaywallCard";
 import { PdfCanvasViewer } from "@/modules/student-notes/viewer/PdfCanvasViewer";
-import { WatermarkOverlay } from "@/modules/student-notes/viewer/WatermarkOverlay";
 import { useNoteProgress } from "@/modules/student-notes/viewer/useNoteProgress";
 import { trackStudentEvent } from "@/modules/student-analytics/events";
 
@@ -41,8 +39,8 @@ export function NoteViewer() {
   const noteId = String(params?.id ?? "");
   const { data: note, isLoading } = useNote(noteId);
   const { canAccessNote } = useStudentAccess();
-  const { mutateAsync: createViewSession, isPending } = useCreateViewSession();
-  const resetSessions = useResetViewSessions();
+  const { mutateAsync: createViewSession, isPending: isCreatingSession } = useCreateViewSession();
+  const { mutateAsync: resetViewSessions, isPending: isResettingSessions } = useResetViewSessions();
 
   const [session, setSession] = React.useState<
     { viewToken: string; sessionId: string; expiresAt: string } | null
@@ -50,6 +48,12 @@ export function NoteViewer() {
   const [error, setError] = React.useState<{ message: string; code?: string } | null>(null);
   const [currentPage, setCurrentPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(0);
+  const autoSessionAttemptRef = React.useRef<string | null>(null);
+  const openedSessionIdRef = React.useRef<string | null>(null);
+  const closedSessionIdRef = React.useRef<string | null>(null);
+  const latestMetricsRef = React.useRef({ currentPage: 1, totalPages: 0 });
+  const autoRenewedSessionIdRef = React.useRef<string | null>(null);
+  const autoResetLimitRef = React.useRef<string | null>(null);
 
   const topicIds = note?.topics?.map((topic) => topic.topicId) ?? [];
   const access = note
@@ -64,24 +68,85 @@ export function NoteViewer() {
   const sessionExpired =
     session?.expiresAt &&
     new Date(session.expiresAt).getTime() < Date.now() - 5000;
+  const isRecoveringSession = isCreatingSession || isResettingSessions;
+  const { data: noteProgress, isLoading: isLoadingProgress } = useNoteReadingProgress(
+    noteId,
+    Boolean(note && access.allowed)
+  );
 
-  const loadSession = React.useCallback(async () => {
+  React.useEffect(() => {
+    autoSessionAttemptRef.current = null;
+    openedSessionIdRef.current = null;
+    closedSessionIdRef.current = null;
+    autoRenewedSessionIdRef.current = null;
+    autoResetLimitRef.current = null;
+    latestMetricsRef.current = { currentPage: 1, totalPages: 0 };
+    setSession(null);
+    setError(null);
+    setCurrentPage(1);
+    setTotalPages(0);
+  }, [noteId]);
+
+  const loadSession = React.useCallback(async (options?: { force?: boolean }) => {
     if (!noteId) return;
+    if (!options?.force && autoSessionAttemptRef.current === noteId) return;
+
+    autoSessionAttemptRef.current = noteId;
+
     try {
       setError(null);
       const data = await createViewSession(noteId);
       setSession(data);
+      openedSessionIdRef.current = null;
+      closedSessionIdRef.current = null;
+      autoRenewedSessionIdRef.current = null;
+      autoResetLimitRef.current = null;
     } catch (err) {
-      setError(parseError(err));
+      const parsed = parseError(err);
+
+      if (parsed.code === "NOTE_SESSION_LIMIT" && autoResetLimitRef.current !== noteId) {
+        autoResetLimitRef.current = noteId;
+
+        try {
+          await resetViewSessions(noteId);
+          const data = await createViewSession(noteId);
+          setSession(data);
+          openedSessionIdRef.current = null;
+          closedSessionIdRef.current = null;
+          autoRenewedSessionIdRef.current = null;
+          autoResetLimitRef.current = null;
+          setError(null);
+          return;
+        } catch (retryErr) {
+          const retryParsed = parseError(retryErr);
+          setError({
+            message:
+              retryParsed.code === "NOTE_SESSION_LIMIT"
+                ? "Unable to open this note right now. Please try again."
+                : retryParsed.message,
+          });
+          return;
+        }
+      }
+
+      setError(parsed);
     }
-  }, [noteId, createViewSession]);
+  }, [noteId, createViewSession, resetViewSessions]);
 
   React.useEffect(() => {
-    if (!noteId || !note || !access.allowed) return;
-    if (!session || sessionExpired) {
+    if (!noteId || !note || !access.allowed || error || session || sessionExpired) return;
+    if (autoSessionAttemptRef.current !== noteId) {
       void loadSession();
     }
-  }, [noteId, note, access.allowed, session, sessionExpired, loadSession]);
+  }, [access.allowed, error, loadSession, note, noteId, session, sessionExpired]);
+
+  React.useEffect(() => {
+    if (!session || !sessionExpired || isRecoveringSession) return;
+    if (autoRenewedSessionIdRef.current === session.sessionId) return;
+
+    autoRenewedSessionIdRef.current = session.sessionId;
+    void loadSession({ force: true });
+  }, [isRecoveringSession, loadSession, session, sessionExpired]);
 
   const { data: watermark } = useWatermark(noteId, session?.viewToken);
 
@@ -89,44 +154,46 @@ export function NoteViewer() {
     noteId,
     currentPage,
     totalPages,
-    enabled: Boolean(session && !sessionExpired),
+    enabled: Boolean(session && !sessionExpired && !isLoadingProgress),
   });
 
-  const openedRef = React.useRef(false);
   React.useEffect(() => {
-    if (!note || !session || openedRef.current) return;
+    latestMetricsRef.current = { currentPage, totalPages };
+  }, [currentPage, totalPages]);
+
+  React.useEffect(() => {
+    if (!note || !session || openedSessionIdRef.current === session.sessionId) return;
     trackStudentEvent("note_open", {
       noteId: note.id,
       sessionId: session.sessionId,
       title: note.title,
     });
-    openedRef.current = true;
+    openedSessionIdRef.current = session.sessionId;
+    closedSessionIdRef.current = null;
   }, [note, session]);
 
   React.useEffect(() => {
     if (!note || !session) return;
-    const interval = window.setInterval(() => {
-      trackStudentEvent("note_open", {
-        noteId: note.id,
-        sessionId: session.sessionId,
-        heartbeat: true,
-      });
-    }, 15000);
 
-    return () => window.clearInterval(interval);
-  }, [note, session]);
+    const sendCloseEvent = () => {
+      if (closedSessionIdRef.current === session.sessionId) return;
+      if (openedSessionIdRef.current !== session.sessionId) return;
 
-  React.useEffect(() => {
-    return () => {
-      if (!note || !session || !openedRef.current) return;
       trackStudentEvent("note_close", {
         noteId: note.id,
         sessionId: session.sessionId,
-        page: currentPage,
-        totalPages,
+        page: latestMetricsRef.current.currentPage,
+        totalPages: latestMetricsRef.current.totalPages,
       });
+      closedSessionIdRef.current = session.sessionId;
     };
-  }, [note, session, currentPage, totalPages]);
+
+    window.addEventListener("pagehide", sendCloseEvent);
+    return () => {
+      window.removeEventListener("pagehide", sendCloseEvent);
+      sendCloseEvent();
+    };
+  }, [note, session]);
 
   if (isLoading) {
     return (
@@ -155,79 +222,64 @@ export function NoteViewer() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-3xl border border-border bg-card/90 p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="flex min-h-[calc(100dvh-7rem)] flex-col gap-4">
+      <div className="rounded-2xl border border-border bg-card/95 p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Secure Viewer
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Note Viewer
             </p>
-            <h1 className="mt-2 font-display text-2xl font-semibold">
+            <h1 className="mt-1 font-display text-xl font-semibold sm:text-2xl">
               {note.title}
             </h1>
-            <p className="text-sm text-muted-foreground">
-              {note.description ?? "Watermarked streaming view"}
-            </p>
+            {note.description ? (
+              <p className="mt-1 text-sm text-muted-foreground">{note.description}</p>
+            ) : null}
+            {noteProgress?.lastPage && noteProgress.lastPage > 1 ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Resume available from page {noteProgress.lastPage}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" onClick={() => router.push("/student/notes")}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => router.push("/student/notes")}
             >
               <FileText className="h-4 w-4" />
               All notes
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void loadSession()}
-              disabled={isPending}
-            >
-              <RefreshCcw className="h-4 w-4" />
-              Refresh session
             </Button>
           </div>
         </div>
 
         {error ? (
-          <div className="mt-4 flex items-start gap-2 rounded-2xl border border-destructive/20 bg-destructive/5 p-3 text-xs text-destructive">
-            <AlertTriangle className="mt-0.5 h-4 w-4" />
-            <div>
-              <p className="font-semibold">Session error</p>
-              <p>{error.message}</p>
-              {error.code === "NOTE_SESSION_LIMIT" ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={async () => {
-                      await resetSessions.mutateAsync(noteId);
-                      await loadSession();
-                    }}
-                    disabled={resetSessions.isPending}
-                  >
-                    Reset other sessions
-                  </Button>
-                  <span className="text-[11px] text-muted-foreground">
-                    This closes other active sessions for this note.
-                  </span>
-                </div>
-              ) : null}
+          <div className="mt-4 rounded-2xl border border-destructive/20 bg-destructive/5 px-3 py-3 text-sm">
+            <div className="flex items-start gap-2 text-destructive">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="min-w-0">
+                <p className="font-medium">Session error</p>
+                <p className="text-xs sm:text-sm">{error.message}</p>
+              </div>
             </div>
           </div>
         ) : null}
 
-        {sessionExpired ? (
-          <div className="mt-4 flex items-start gap-2 rounded-2xl border border-border bg-muted/60 p-3 text-xs text-muted-foreground">
+        {sessionExpired && !isRecoveringSession ? (
+          <div className="mt-4 flex items-start gap-2 rounded-2xl border border-border bg-muted/60 p-3 text-sm text-muted-foreground">
             <Lock className="mt-0.5 h-4 w-4" />
             <div>
-              <p className="font-semibold">Session expired</p>
-              <p>Refresh the session to continue reading.</p>
+              <p className="font-medium text-foreground">Restoring secure session</p>
+              <p className="text-xs sm:text-sm">
+                The viewer is renewing access automatically.
+              </p>
             </div>
           </div>
         ) : null}
       </div>
 
       <div
-        className="relative rounded-3xl border border-border bg-background p-4"
+        className="flex flex-1 flex-col rounded-2xl border border-border bg-background p-3 sm:p-4"
         tabIndex={0}
         onKeyDown={(event) => {
           if ((event.ctrlKey || event.metaKey) &&
@@ -236,24 +288,20 @@ export function NoteViewer() {
           }
         }}
       >
-        <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1 text-xs text-muted-foreground">
-          <Shield className="h-3.5 w-3.5 text-accent" />
-          Protected stream
-        </div>
         {session ? (
-          <div className="relative">
-            <PdfCanvasViewer
-              noteId={noteId}
-              viewToken={session.viewToken}
-              onReady={(pages) => setTotalPages(pages)}
-              onPageChange={(page, pages) => {
-                setCurrentPage(page);
-                setTotalPages(pages);
-              }}
-              onError={(message) => setError({ message })}
-            />
-            <WatermarkOverlay payload={watermark?.payload} />
-          </div>
+          <PdfCanvasViewer
+            noteId={noteId}
+            viewToken={session.viewToken}
+            initialPage={currentPage > 1 ? currentPage : noteProgress?.lastPage ?? 1}
+            initialPageReady={!isLoadingProgress}
+            watermarkPayload={watermark?.payload}
+            onReady={(pages) => setTotalPages(pages)}
+            onPageChange={(page, pages) => {
+              setCurrentPage(page);
+              setTotalPages(pages);
+            }}
+            onError={(message) => setError({ message })}
+          />
         ) : (
           <div className="flex min-h-[360px] items-center justify-center rounded-3xl border border-dashed border-border bg-muted/40 p-6 text-center text-sm text-muted-foreground">
             Preparing secure stream...

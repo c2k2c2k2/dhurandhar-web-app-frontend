@@ -6,7 +6,6 @@ import {
   BookOpen,
   ClipboardList,
   GraduationCap,
-  Sparkles,
   Target,
   Flame,
 } from "lucide-react";
@@ -15,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useStudentAccess } from "@/modules/student-auth/StudentAuthProvider";
 import { cn } from "@/lib/utils";
 import { useStudentHome } from "@/modules/student-home/hooks";
+import { useStudentSummary } from "@/modules/student-profile/hooks";
 import type { StudentHomeResponse } from "@/modules/student-home/types";
 
 const fallbackHome: StudentHomeResponse = {
@@ -143,15 +143,34 @@ function bannerTone(tone?: string) {
   return "bg-gradient-to-br from-muted/80 via-card/90 to-card";
 }
 
+function formatStudyMinutes(totalMinutes: number) {
+  const minutes = Math.max(0, Math.round(totalMinutes));
+  if (minutes < 60) {
+    return `${minutes} mins`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (remainder === 0) {
+    return `${hours} hr${hours === 1 ? "" : "s"}`;
+  }
+
+  return `${hours}h ${remainder}m`;
+}
+
 export default function StudentHomePage() {
   const { me } = useStudentAccess();
   const { data, isLoading } = useStudentHome();
+  const { data: summary } = useStudentSummary();
   const home = data ?? fallbackHome;
   const firstName = me?.fullName?.split(" ")[0] || "Student";
+  const streakDays = summary?.activity.streakDays ?? 0;
+  const accuracy = summary?.practice.accuracy ?? 0;
+  const todayMinutes = summary?.activity.todayMinutes ?? 0;
 
   return (
     <div className="space-y-10">
-      <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <section>
         <div className="rounded-3xl border border-border bg-card/90 p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -186,60 +205,20 @@ export default function StudentHomePage() {
                 Streak
               </p>
               <p className="mt-2 flex items-center gap-2 text-lg font-semibold">
-                <Flame className="h-4 w-4 text-accent" /> 5 days
+                <Flame className="h-4 w-4 text-accent" /> {streakDays} day{streakDays === 1 ? "" : "s"}
               </p>
             </div>
             <div className="rounded-2xl border border-border bg-muted/50 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                 Accuracy
               </p>
-              <p className="mt-2 text-lg font-semibold">82%</p>
+              <p className="mt-2 text-lg font-semibold">{accuracy}%</p>
             </div>
             <div className="rounded-2xl border border-border bg-muted/50 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                 Today
               </p>
-              <p className="mt-2 text-lg font-semibold">42 mins</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-border bg-card/90 p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                Focus stack
-              </p>
-              <h2 className="mt-2 font-display text-xl font-semibold">
-                Keep these on repeat
-              </h2>
-            </div>
-            <Sparkles className="h-6 w-6 text-accent" />
-          </div>
-          <div className="mt-4 space-y-3 text-sm text-muted-foreground">
-            <div className="rounded-2xl border border-border bg-background/80 p-4">
-              <p className="text-sm font-medium text-foreground">
-                Quant: Ratio + Proportion
-              </p>
-              <p className="text-xs text-muted-foreground">
-                12 questions • 15 min drill
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border bg-background/80 p-4">
-              <p className="text-sm font-medium text-foreground">
-                Reasoning: Puzzles
-              </p>
-              <p className="text-xs text-muted-foreground">
-                10 questions • 12 min drill
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border bg-background/80 p-4">
-              <p className="text-sm font-medium text-foreground">
-                English: Error spotting
-              </p>
-              <p className="text-xs text-muted-foreground">
-                8 questions • 10 min drill
-              </p>
+              <p className="mt-2 text-lg font-semibold">{formatStudyMinutes(todayMinutes)}</p>
             </div>
           </div>
         </div>

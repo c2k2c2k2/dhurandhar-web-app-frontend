@@ -36,6 +36,16 @@ export type NoteViewSession = {
   expiresAt: string;
 };
 
+export type NoteProgressRecord = {
+  id: string;
+  noteId: string;
+  userId: string;
+  lastPage?: number | null;
+  completionPercent?: number | null;
+  updatedAt: string;
+  createdAt: string;
+};
+
 export type WatermarkPayload = {
   displayName: string;
   email?: string;

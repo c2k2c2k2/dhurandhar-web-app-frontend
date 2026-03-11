@@ -7,6 +7,7 @@ import {
 import type {
   NoteDetail,
   NoteItem,
+  NoteProgressRecord,
   NoteTreeSubject,
   NoteViewSession,
   WatermarkResponse,
@@ -48,6 +49,12 @@ export async function createViewSession(noteId: string) {
 export async function getWatermark(noteId: string, viewToken: string) {
   const query = new URLSearchParams({ token: viewToken });
   return apiFetch<WatermarkResponse>(`/notes/${noteId}/watermark?${query}`, {
+    method: "GET",
+  });
+}
+
+export async function getNoteProgress(noteId: string) {
+  return apiFetch<NoteProgressRecord | null>(`/notes/${noteId}/progress`, {
     method: "GET",
   });
 }

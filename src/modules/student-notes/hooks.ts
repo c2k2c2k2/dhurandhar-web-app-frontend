@@ -39,6 +39,18 @@ export function useWatermark(noteId?: string, viewToken?: string) {
     queryKey: ["student", "notes", "watermark", noteId, viewToken],
     queryFn: () => api.getWatermark(noteId as string, viewToken as string),
     enabled: Boolean(noteId && viewToken),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useNoteReadingProgress(noteId?: string, enabled = true) {
+  return useQuery({
+    queryKey: ["student", "notes", "progress", noteId],
+    queryFn: () => api.getNoteProgress(noteId as string),
+    enabled: Boolean(noteId) && enabled,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 

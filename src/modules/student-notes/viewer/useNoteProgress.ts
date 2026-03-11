@@ -15,6 +15,10 @@ export function useNoteProgress({
   enabled?: boolean;
 }) {
   const { mutate } = useUpdateNoteProgress();
+  const mutateRef = React.useRef(mutate);
+  const noteIdRef = React.useRef(noteId);
+  const payloadRef = React.useRef<{ lastPage: number; completionPercent: number } | null>(null);
+  const lastPersistedPayloadRef = React.useRef<string | null>(null);
 
   const payload = React.useMemo(() => {
     if (!noteId || !totalPages) return null;
@@ -26,15 +30,71 @@ export function useNoteProgress({
   }, [noteId, currentPage, totalPages]);
 
   React.useEffect(() => {
+    mutateRef.current = mutate;
+  }, [mutate]);
+
+  React.useEffect(() => {
+    noteIdRef.current = noteId;
+    payloadRef.current = payload;
+  }, [noteId, payload]);
+
+  const persistLatest = React.useCallback(() => {
+    const activeNoteId = noteIdRef.current;
+    const activePayload = payloadRef.current;
+
+    if (!enabled || !activeNoteId || !activePayload) {
+      return;
+    }
+
+    const serialized = JSON.stringify(activePayload);
+    if (serialized === lastPersistedPayloadRef.current) {
+      return;
+    }
+
+    lastPersistedPayloadRef.current = serialized;
+    mutateRef.current(
+      { noteId: activeNoteId, payload: activePayload },
+      {
+        onError: () => {
+          if (lastPersistedPayloadRef.current === serialized) {
+            lastPersistedPayloadRef.current = null;
+          }
+        },
+      }
+    );
+  }, [enabled]);
+
+  React.useEffect(() => {
     if (!enabled || !noteId || !payload) return;
 
-    const send = () => mutate({ noteId, payload });
-    const interval = window.setInterval(send, 20000);
-    send();
+    const serialized = JSON.stringify(payload);
+    if (serialized === lastPersistedPayloadRef.current) return;
+
+    const timeout = window.setTimeout(() => {
+      persistLatest();
+    }, 1200);
 
     return () => {
-      window.clearInterval(interval);
-      send();
+      window.clearTimeout(timeout);
     };
-  }, [enabled, noteId, payload, mutate]);
+  }, [enabled, noteId, payload, persistLatest]);
+
+  React.useEffect(() => {
+    if (!enabled) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        persistLatest();
+      }
+    };
+
+    window.addEventListener("pagehide", persistLatest);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("pagehide", persistLatest);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      persistLatest();
+    };
+  }, [enabled, persistLatest]);
 }

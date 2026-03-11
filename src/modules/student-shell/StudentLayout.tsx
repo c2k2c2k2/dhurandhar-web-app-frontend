@@ -1,12 +1,17 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { StudentBottomNav } from "@/modules/student-shell/StudentBottomNav";
 import { StudentSidebar } from "@/modules/student-shell/StudentSidebar";
 import { StudentTopbar } from "@/modules/student-shell/StudentTopbar";
 
 export function StudentLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname() || "";
+  const isFocusedNoteView =
+    pathname.startsWith("/student/notes/") && pathname !== "/student/notes";
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-[rgb(var(--background))] via-[rgb(var(--background))] to-[rgb(var(--muted))] text-foreground">
       <div className="relative">
@@ -20,8 +25,14 @@ export function StudentLayout({ children }: { children: React.ReactNode }) {
           <StudentTopbar />
           <div className="flex">
             <StudentSidebar />
-            <main className="min-w-0 flex-1 pb-32 pt-4 sm:pt-6 lg:pb-10">
-              <PageContainer>{children}</PageContainer>
+            <main
+              className={`min-w-0 flex-1 pt-4 sm:pt-6 lg:pb-10 ${
+                isFocusedNoteView ? "pb-0" : "pb-32"
+              }`}
+            >
+              <PageContainer className={isFocusedNoteView ? "max-w-5xl" : undefined}>
+                {children}
+              </PageContainer>
             </main>
           </div>
           <StudentBottomNav />

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell, LogOut, Search, Sparkles } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -13,9 +13,12 @@ import { LANGUAGE_LABELS, useI18n } from "@/modules/i18n";
 
 export function StudentTopbar() {
   const router = useRouter();
+  const pathname = usePathname() || "";
   const { user, logout } = useAuth();
   const name = user?.fullName?.split(" ")[0] || "Student";
   const { availableLanguages, language, setLanguage, t } = useI18n();
+  const isFocusedNoteView =
+    pathname.startsWith("/student/notes/") && pathname !== "/student/notes";
 
   const handleLogout = async () => {
     await logout();
@@ -24,7 +27,11 @@ export function StudentTopbar() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
-      <div className="flex items-center gap-4 px-4 py-3 md:px-8">
+      <div
+        className={`flex items-center gap-4 px-4 md:px-8 ${
+          isFocusedNoteView ? "py-2.5" : "py-3"
+        }`}
+      >
         <BrandLogo
           href="/student"
           title="Dhurandhar Academy"
@@ -34,7 +41,7 @@ export function StudentTopbar() {
           subtitleClassName="text-sm font-semibold text-foreground"
         />
 
-        <div className="hidden flex-1 md:flex">
+        <div className={`flex-1 ${isFocusedNoteView ? "hidden" : "hidden md:flex"}`}>
           <div className="relative w-full max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -45,7 +52,11 @@ export function StudentTopbar() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <div className="hidden items-center gap-2 rounded-full bg-muted/60 px-3 py-1 text-xs text-muted-foreground lg:flex">
+          <div
+            className={`hidden items-center gap-2 rounded-full bg-muted/60 px-3 py-1 text-xs text-muted-foreground lg:flex ${
+              isFocusedNoteView ? "lg:hidden" : ""
+            }`}
+          >
             <Sparkles className="h-3.5 w-3.5 text-accent" />
             <span>{t("student.goal")}</span>
           </div>
@@ -103,7 +114,7 @@ export function StudentTopbar() {
         </div>
       </div>
 
-      <div className="px-4 pb-3 md:hidden">
+      <div className={`px-4 pb-3 md:hidden ${isFocusedNoteView ? "hidden" : "block"}`}>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input

@@ -22,6 +22,11 @@ export type StudentSummary = {
     averageScore: number;
     lastAttemptAt?: string | null;
   };
+  activity: {
+    streakDays: number;
+    todayMinutes: number;
+    lastActiveAt?: string | null;
+  };
 };
 
 export type Paginated<T> = {
