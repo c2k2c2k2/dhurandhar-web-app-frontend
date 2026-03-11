@@ -19,6 +19,7 @@ import {
 import { trackStudentEvent } from "@/modules/student-analytics/events";
 import { extractText } from "@/modules/questions/utils";
 import { QuestionRichContent } from "@/modules/questions/components/RichTextRenderer";
+import { QuestionSnippet } from "@/modules/questions/components/QuestionSnippet";
 import { useQuestionLanguage } from "@/modules/student-questions/QuestionLanguageProvider";
 
 const BATCH_SIZE = 5;
@@ -188,10 +189,12 @@ export default function StudentPracticeSessionPage() {
                   key={item.question.id}
                   className="rounded-2xl border border-border bg-background px-3 py-2"
                 >
-                  <p className="text-sm font-medium text-foreground">
-                    {extractText(item.question.statementJson).slice(0, 140) ||
-                      "Practice question"}
-                  </p>
+                  <QuestionSnippet
+                    content={item.question.statementJson}
+                    maxLength={140}
+                    className="font-medium"
+                    fallback="Practice question"
+                  />
                   <p className="text-xs text-muted-foreground">
                     Wrong: {item.wrongCount} • Correct: {item.correctCount}
                   </p>

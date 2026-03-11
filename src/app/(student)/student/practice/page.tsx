@@ -10,7 +10,7 @@ import {
   usePracticeTrend,
   usePracticeWeakQuestions,
 } from "@/modules/student-practice/hooks";
-import { extractText } from "@/modules/questions/utils";
+import { QuestionSnippet } from "@/modules/questions/components/QuestionSnippet";
 
 export default function StudentPracticePage() {
   const { canAccessPractice } = useStudentAccess();
@@ -123,10 +123,12 @@ export default function StudentPracticePage() {
                   key={item.question.id}
                   className="rounded-2xl border border-border bg-background px-3 py-2"
                 >
-                  <p className="text-sm font-medium text-foreground">
-                    {extractText(item.question.statementJson).slice(0, 120) ||
-                      "Practice question"}
-                  </p>
+                  <QuestionSnippet
+                    content={item.question.statementJson}
+                    maxLength={120}
+                    className="font-medium"
+                    fallback="Practice question"
+                  />
                   <p className="text-xs text-muted-foreground">
                     Wrong: {item.wrongCount} • Correct: {item.correctCount}
                   </p>

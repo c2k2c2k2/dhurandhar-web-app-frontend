@@ -18,9 +18,22 @@ export type AttemptItem = {
   test?: TestItem;
 };
 
+export type AttemptQuestionResult = {
+  questionId: string;
+  orderIndex: number;
+  answerJson?: unknown | null;
+  correctAnswerJson?: unknown | null;
+  isCorrect: boolean | null;
+  status: "CORRECT" | "WRONG" | "SKIPPED";
+  scoreDelta: number;
+  marks: number;
+  negativeMark: number;
+};
+
 export type AttemptDetail = AttemptItem & {
   test: TestItem;
   questions: QuestionItem[];
+  questionResults?: AttemptQuestionResult[];
 };
 
 export type AttemptListResponse = {
@@ -39,6 +52,7 @@ export type StartAttemptResponse = {
 export type SubmitAttemptResponse = {
   totalScore: number;
   scoreJson: Record<string, unknown>;
+  questionResults?: AttemptQuestionResult[];
 };
 
 export type AttemptState = {

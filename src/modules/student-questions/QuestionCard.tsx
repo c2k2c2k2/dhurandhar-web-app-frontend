@@ -72,8 +72,9 @@ function OptionRow({
       type="button"
       onClick={onClick}
       disabled={disabled}
+      aria-pressed={selected}
       className={cn(
-        "flex w-full items-start gap-3 rounded-2xl border p-3 text-left text-sm transition",
+        "flex w-full cursor-pointer items-start gap-3 rounded-2xl border p-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         reviewClass,
         reviewState === "default" && !selected ? "hover:bg-muted/50" : "",
         disabled && "cursor-not-allowed"
