@@ -12,6 +12,13 @@ export type NotificationTemplate = {
   updatedAt?: string;
 };
 
+export type NotificationTemplateResponse = {
+  data: NotificationTemplate[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export type NotificationMessage = {
   id: string;
   status?: string;

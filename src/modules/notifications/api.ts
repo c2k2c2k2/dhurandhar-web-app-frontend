@@ -3,6 +3,7 @@
 import { apiFetch } from "@/lib/api/client";
 import type {
   NotificationTemplate,
+  NotificationTemplateResponse,
   NotificationMessageResponse,
   NotificationBroadcastResponse,
   NotificationMessage,
@@ -13,6 +14,8 @@ export type TemplatesQuery = {
   channel?: string;
   search?: string;
   isActive?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 export type MessagesQuery = {
@@ -63,11 +66,35 @@ function buildQuery(params: Record<string, string | number | undefined>) {
   return qs ? `?${qs}` : "";
 }
 
+function normalizeTemplateList(payload: unknown): NotificationTemplateResponse {
+  if (payload && typeof payload === "object") {
+    const typed = payload as Record<string, unknown>;
+    if (Array.isArray(typed.data)) {
+      return {
+        data: typed.data as NotificationTemplate[],
+        total: Number(typed.total ?? (typed.data as NotificationTemplate[]).length),
+        page: Number(typed.page ?? 1),
+        pageSize: Number(typed.pageSize ?? 20),
+      };
+    }
+  }
+  if (Array.isArray(payload)) {
+    return {
+      data: payload as NotificationTemplate[],
+      total: payload.length,
+      page: 1,
+      pageSize: payload.length || 20,
+    };
+  }
+  return { data: [], total: 0, page: 1, pageSize: 20 };
+}
+
 export async function listTemplates(query: TemplatesQuery) {
-  return apiFetch<NotificationTemplate[]>(
+  const data = await apiFetch<unknown>(
     `/admin/notifications/templates${buildQuery(query)}`,
     { method: "GET" }
   );
+  return normalizeTemplateList(data);
 }
 
 export async function createTemplate(payload: TemplatePayload) {

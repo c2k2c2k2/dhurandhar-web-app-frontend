@@ -4,7 +4,11 @@ import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { DataTable, type DataTableColumn } from "@/modules/shared/components/DataTable";
+import {
+  DataTable,
+  type DataTableColumn,
+  type DataTablePagination,
+} from "@/modules/shared/components/DataTable";
 import type { Subject } from "@/modules/taxonomy/subjects/types";
 import type { Topic } from "@/modules/taxonomy/topics/types";
 import type { QuestionItem } from "../types";
@@ -61,6 +65,7 @@ export function QuestionsTable({
   onPublish,
   onUnpublish,
   onDelete,
+  pagination,
 }: {
   questions: QuestionItem[];
   subjects: Subject[];
@@ -71,6 +76,7 @@ export function QuestionsTable({
   onPublish: (questionId: string) => void;
   onUnpublish: (questionId: string) => void;
   onDelete: (questionId: string) => void;
+  pagination?: DataTablePagination;
 }) {
   const columns = React.useMemo<DataTableColumn<QuestionItem>[]>(
     () => [
@@ -200,6 +206,7 @@ export function QuestionsTable({
       columns={columns}
       rows={questions}
       emptyLabel="No questions found."
+      pagination={pagination}
     />
   );
 }

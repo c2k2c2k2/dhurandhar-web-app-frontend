@@ -17,10 +17,7 @@ export function useNotes(filters: NoteFilters = {}) {
 export function useNote(noteId?: string) {
   return useQuery({
     queryKey: ["admin", "notes", "detail", noteId],
-    queryFn: async () => {
-      const list = await api.listNotes();
-      return list.find((note) => note.id === noteId) || null;
-    },
+    queryFn: () => api.getNote(noteId as string),
     enabled: Boolean(noteId),
   });
 }

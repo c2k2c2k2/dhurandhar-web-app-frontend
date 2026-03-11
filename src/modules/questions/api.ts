@@ -7,36 +7,56 @@ import type {
   QuestionDetail,
   QuestionDifficulty,
   QuestionItem,
+  QuestionListResponse,
   QuestionType,
   QuestionUpdateInput,
 } from "./types";
 
 export type QuestionFilters = {
+  q?: string;
   subjectId?: string;
   topicId?: string;
   type?: QuestionType;
   difficulty?: QuestionDifficulty;
   isPublished?: boolean;
+  page?: number;
+  pageSize?: number;
 };
 
-function normalizeList(payload: unknown): QuestionItem[] {
-  if (Array.isArray(payload)) {
-    return payload as QuestionItem[];
-  }
+function normalizeList(payload: unknown): QuestionListResponse {
   if (payload && typeof payload === "object") {
     const typed = payload as Record<string, unknown>;
-    if (Array.isArray(typed.items)) {
-      return typed.items as QuestionItem[];
-    }
     if (Array.isArray(typed.data)) {
-      return typed.data as QuestionItem[];
+      return {
+        data: typed.data as QuestionItem[],
+        total: Number(typed.total ?? (typed.data as QuestionItem[]).length),
+        page: Number(typed.page ?? 1),
+        pageSize: Number(typed.pageSize ?? 20),
+      };
+    }
+    if (Array.isArray(typed.items)) {
+      return {
+        data: typed.items as QuestionItem[],
+        total: Number(typed.total ?? (typed.items as QuestionItem[]).length),
+        page: Number(typed.page ?? 1),
+        pageSize: Number(typed.pageSize ?? 20),
+      };
     }
   }
-  return [];
+  if (Array.isArray(payload)) {
+    return {
+      data: payload as QuestionItem[],
+      total: payload.length,
+      page: 1,
+      pageSize: payload.length || 20,
+    };
+  }
+  return { data: [], total: 0, page: 1, pageSize: 20 };
 }
 
 export async function listQuestions(filters: QuestionFilters = {}) {
   const params = new URLSearchParams();
+  if (filters.q) params.set("q", filters.q);
   if (filters.subjectId) params.set("subjectId", filters.subjectId);
   if (filters.topicId) params.set("topicId", filters.topicId);
   if (filters.type) params.set("type", filters.type);
@@ -44,6 +64,8 @@ export async function listQuestions(filters: QuestionFilters = {}) {
   if (typeof filters.isPublished === "boolean") {
     params.set("isPublished", String(filters.isPublished));
   }
+  if (filters.page) params.set("page", String(filters.page));
+  if (filters.pageSize) params.set("pageSize", String(filters.pageSize));
   const queryString = params.toString();
   const data = await apiFetch<unknown>(
     `/admin/questions${queryString ? `?${queryString}` : ""}`,

@@ -33,6 +33,8 @@ export default function AdminNotesPage() {
   const [topicId, setTopicId] = React.useState("");
   const [publishedFilter, setPublishedFilter] = React.useState("all");
   const [premiumFilter, setPremiumFilter] = React.useState("all");
+  const [page, setPage] = React.useState(1);
+  const pageSize = 20;
 
   const { data: topics } = useTopics(subjectId || undefined);
 
@@ -42,8 +44,10 @@ export default function AdminNotesPage() {
       topicId: topicId || undefined,
       isPublished: publishedFilter === "all" ? undefined : publishedFilter === "yes",
       isPremium: premiumFilter === "all" ? undefined : premiumFilter === "yes",
+      page,
+      pageSize,
     }),
-    [subjectId, topicId, publishedFilter, premiumFilter]
+    [page, pageSize, premiumFilter, publishedFilter, subjectId, topicId]
   );
 
   const {
@@ -51,6 +55,16 @@ export default function AdminNotesPage() {
     isLoading: notesLoading,
     error: notesError,
   } = useNotes(filters);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [subjectId, topicId, publishedFilter, premiumFilter]);
+
+  React.useEffect(() => {
+    if (page > 1 && notes && notes.data.length === 0) {
+      setPage((current) => Math.max(current - 1, 1));
+    }
+  }, [notes, page]);
 
   const publishNote = usePublishNote();
   const unpublishNote = useUnpublishNote();
@@ -154,7 +168,7 @@ export default function AdminNotesPage() {
           />
         ) : (
           <NotesTable
-            notes={notes || []}
+            notes={notes?.data ?? []}
             subjects={subjects || []}
             canEdit={canEdit}
             canPublish={canPublish}
@@ -162,6 +176,16 @@ export default function AdminNotesPage() {
             onPublish={(noteId) => publishNote.mutate(noteId)}
             onUnpublish={(noteId) => unpublishNote.mutate(noteId)}
             onDelete={(noteId) => setDeleteTargetId(noteId)}
+            pagination={
+              notes && notes.total > notes.pageSize
+                ? {
+                    page: notes.page,
+                    pageSize: notes.pageSize,
+                    total: notes.total,
+                    onPageChange: setPage,
+                  }
+                : undefined
+            }
           />
         )}
       </div>

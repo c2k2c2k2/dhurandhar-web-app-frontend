@@ -75,7 +75,7 @@ export default function AdminUsersPage() {
   const { data, isLoading, error } = useUsers(query);
   const createUser = useCreateUser();
   const activateSubscription = useActivateUserSubscription();
-  const rolesQuery = useAccessRoles(canReadRbac);
+  const rolesQuery = useAccessRoles({ page: 1, pageSize: 100 }, canReadRbac);
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [createEmail, setCreateEmail] = React.useState("");
@@ -98,7 +98,7 @@ export default function AdminUsersPage() {
   );
 
   const roleOptions = React.useMemo(() => {
-    const all = rolesQuery.data ?? [];
+    const all = rolesQuery.data?.data ?? [];
     const filtered =
       createType === "ADMIN"
         ? all.filter((role) => role.key !== "STUDENT")

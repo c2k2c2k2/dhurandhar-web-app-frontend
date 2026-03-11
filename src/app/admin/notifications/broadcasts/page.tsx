@@ -71,7 +71,7 @@ export default function AdminNotificationBroadcastsPage() {
   };
 
   const { data, isLoading, error } = useNotificationBroadcasts(query);
-  const { data: templates } = useNotificationTemplates({});
+  const { data: templates } = useNotificationTemplates({ page: 1, pageSize: 200 });
   const createBroadcast = useCreateBroadcast(query);
   const deleteBroadcast = useDeleteBroadcast(query);
   const scheduleBroadcast = useScheduleBroadcast(query);
@@ -384,7 +384,7 @@ export default function AdminNotificationBroadcastsPage() {
             onChange={(event) => setTemplateId(event.target.value)}
           >
             <option value="">Select template</option>
-            {(templates || []).map((template) => (
+            {(templates?.data ?? []).map((template) => (
               <option key={template.id} value={template.id}>
                 {template.key} ({template.channel})
               </option>

@@ -30,9 +30,11 @@ export default function AccessControlPage() {
   const { toast } = useToast();
   const canRead = hasPermission(user, "rbac.read");
   const canManage = hasPermission(user, "rbac.manage");
+  const [page, setPage] = React.useState(1);
+  const pageSize = 20;
 
   const permissionsQuery = useAccessPermissions(canRead);
-  const rolesQuery = useAccessRoles(canRead);
+  const rolesQuery = useAccessRoles({ page, pageSize }, canRead);
   const createRole = useCreateAccessRole();
   const updateRole = useUpdateAccessRole();
   const deleteRole = useDeleteAccessRole();
@@ -47,6 +49,12 @@ export default function AccessControlPage() {
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteTarget, setDeleteTarget] = React.useState<AccessRole | null>(null);
+
+  React.useEffect(() => {
+    if (page > 1 && rolesQuery.data && rolesQuery.data.data.length === 0) {
+      setPage((current) => Math.max(current - 1, 1));
+    }
+  }, [page, rolesQuery.data]);
 
   const permissionOptions = React.useMemo(
     () =>
@@ -248,7 +256,7 @@ export default function AccessControlPage() {
 
         <DataTable
           columns={columns}
-          rows={rolesQuery.data ?? []}
+          rows={rolesQuery.data?.data ?? []}
           loading={rolesQuery.isLoading}
           error={
             rolesQuery.error &&
@@ -260,6 +268,16 @@ export default function AccessControlPage() {
                 : null
           }
           emptyLabel="No roles found."
+          pagination={
+            rolesQuery.data && rolesQuery.data.total > rolesQuery.data.pageSize
+              ? {
+                  page: rolesQuery.data.page,
+                  pageSize: rolesQuery.data.pageSize,
+                  total: rolesQuery.data.total,
+                  onPageChange: setPage,
+                }
+              : undefined
+          }
         />
       </div>
 

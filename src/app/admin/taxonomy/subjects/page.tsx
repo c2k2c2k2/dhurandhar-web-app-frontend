@@ -32,6 +32,8 @@ export default function AdminSubjectsPage() {
   const { data, isLoading, error } = useSubjects();
   const deleteSubject = useDeleteSubject();
   const [query, setQuery] = React.useState("");
+  const [page, setPage] = React.useState(1);
+  const pageSize = 20;
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Subject | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<Subject | null>(null);
@@ -54,6 +56,21 @@ export default function AdminSubjectsPage() {
   const filtered = subjects.filter((subject) =>
     getSubjectName(subject).toLowerCase().includes(query.toLowerCase())
   );
+  const paginatedSubjects = React.useMemo(
+    () => filtered.slice((page - 1) * pageSize, page * pageSize),
+    [filtered, page, pageSize]
+  );
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  React.useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filtered.length / pageSize));
+    if (page > maxPage) {
+      setPage(maxPage);
+    }
+  }, [filtered.length, page, pageSize]);
 
   const handleDelete = React.useCallback(async () => {
     if (!deleteTarget) return;
@@ -113,12 +130,22 @@ export default function AdminSubjectsPage() {
           />
         ) : (
           <SubjectsTable
-            subjects={filtered}
+            subjects={paginatedSubjects}
             onEdit={(subject) => {
               setEditing(subject);
               setOpen(true);
             }}
             onDelete={(subject) => setDeleteTarget(subject)}
+            pagination={
+              filtered.length > pageSize
+                ? {
+                    page,
+                    pageSize,
+                    total: filtered.length,
+                    onPageChange: setPage,
+                  }
+                : undefined
+            }
           />
         )}
         <SubjectFormDialog

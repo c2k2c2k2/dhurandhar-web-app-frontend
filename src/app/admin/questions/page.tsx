@@ -24,7 +24,6 @@ import {
   useQuestions,
   useUnpublishQuestion,
 } from "@/modules/questions/hooks";
-import { extractText } from "@/modules/questions/utils";
 
 export default function AdminQuestionsPage() {
   const { user } = useAuth();
@@ -46,6 +45,8 @@ export default function AdminQuestionsPage() {
   }, [searchParam]);
 
   const debouncedSearch = useDebouncedValue(searchInput, 300);
+  const [page, setPage] = React.useState(1);
+  const pageSize = 20;
 
   const updateQuery = React.useCallback(
     (updates: Record<string, string | null>) => {
@@ -81,6 +82,7 @@ export default function AdminQuestionsPage() {
 
   const filters = React.useMemo(
     () => ({
+      q: searchParam.trim() || undefined,
       subjectId: subjectId || undefined,
       topicId: topicId || undefined,
       difficulty:
@@ -88,8 +90,10 @@ export default function AdminQuestionsPage() {
           ? (difficulty as "EASY" | "MEDIUM" | "HARD")
           : undefined,
       isPublished: published === "all" ? undefined : published === "yes",
+      page,
+      pageSize,
     }),
-    [subjectId, topicId, difficulty, published]
+    [difficulty, page, pageSize, published, searchParam, subjectId, topicId]
   );
 
   const {
@@ -97,6 +101,16 @@ export default function AdminQuestionsPage() {
     isLoading: questionsLoading,
     error: questionsError,
   } = useQuestions(filters);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [subjectId, topicId, difficulty, published, searchParam]);
+
+  React.useEffect(() => {
+    if (page > 1 && questions && questions.data.length === 0) {
+      setPage((current) => Math.max(current - 1, 1));
+    }
+  }, [questions, page]);
 
   const publishQuestion = usePublishQuestion();
   const unpublishQuestion = useUnpublishQuestion();
@@ -120,15 +134,6 @@ export default function AdminQuestionsPage() {
       });
     }
   }, [deleteQuestion, deleteTargetId, toast]);
-
-  const searchTerm = searchParam.trim().toLowerCase();
-  const filteredQuestions = React.useMemo(() => {
-    if (!questions) return [];
-    if (searchTerm.length < 2) return questions;
-    return questions.filter((question) =>
-      extractText(question.statementJson).toLowerCase().includes(searchTerm)
-    );
-  }, [questions, searchTerm]);
 
   return (
     <RequirePerm perm="questions.read">
@@ -235,7 +240,7 @@ export default function AdminQuestionsPage() {
           />
         ) : (
           <QuestionsTable
-            questions={filteredQuestions}
+            questions={questions?.data ?? []}
             subjects={subjects || []}
             topics={topics || []}
             canEdit={canEdit}
@@ -244,6 +249,16 @@ export default function AdminQuestionsPage() {
             onPublish={(questionId) => publishQuestion.mutate(questionId)}
             onUnpublish={(questionId) => unpublishQuestion.mutate(questionId)}
             onDelete={(questionId) => setDeleteTargetId(questionId)}
+            pagination={
+              questions && questions.total > questions.pageSize
+                ? {
+                    page: questions.page,
+                    pageSize: questions.pageSize,
+                    total: questions.total,
+                    onPageChange: setPage,
+                  }
+                : undefined
+            }
           />
         )}
       </div>

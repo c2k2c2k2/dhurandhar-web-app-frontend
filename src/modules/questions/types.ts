@@ -62,6 +62,13 @@ export type QuestionDetail = QuestionItem & {
   assets?: QuestionAsset[];
 };
 
+export type QuestionListResponse = {
+  data: QuestionItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export type QuestionCreateInput = {
   subjectId: string;
   topicId?: string;

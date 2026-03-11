@@ -104,7 +104,10 @@ export default function AdminUserDetailPage() {
   const [editStatus, setEditStatus] = React.useState<"ACTIVE" | "BLOCKED">("ACTIVE");
   const [editRoleIds, setEditRoleIds] = React.useState<string[]>([]);
 
-  const rolesQuery = useAccessRoles(canReadRbac && editOpen);
+  const rolesQuery = useAccessRoles(
+    { page: 1, pageSize: 100 },
+    canReadRbac && editOpen,
+  );
   const plansQuery = useAdminPlans(
     {
       isActive: "true",
@@ -115,7 +118,7 @@ export default function AdminUserDetailPage() {
   );
 
   const roleOptions = React.useMemo(() => {
-    const all = rolesQuery.data ?? [];
+    const all = rolesQuery.data?.data ?? [];
     const filtered =
       editType === "ADMIN"
         ? all.filter((role) => role.key !== "STUDENT")

@@ -3,7 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { DataTable, type DataTableColumn } from "@/modules/shared/components/DataTable";
+import {
+  DataTable,
+  type DataTableColumn,
+  type DataTablePagination,
+} from "@/modules/shared/components/DataTable";
 import type { Subject } from "./types";
 
 function getSubjectName(subject: Subject) {
@@ -25,10 +29,12 @@ export function SubjectsTable({
   subjects,
   onEdit,
   onDelete,
+  pagination,
 }: {
   subjects: Subject[];
   onEdit: (subject: Subject) => void;
   onDelete: (subject: Subject) => void;
+  pagination?: DataTablePagination;
 }) {
   const columns = React.useMemo<DataTableColumn<Subject>[]>(
     () => [
@@ -100,6 +106,7 @@ export function SubjectsTable({
       columns={columns}
       rows={subjects}
       emptyLabel="No subjects created yet."
+      pagination={pagination}
     />
   );
 }

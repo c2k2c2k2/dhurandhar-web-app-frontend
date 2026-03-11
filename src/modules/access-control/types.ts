@@ -21,6 +21,13 @@ export type AccessRole = {
   updatedAt?: string;
 };
 
+export type AccessRoleListResponse = {
+  data: AccessRole[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export type RolePayload = {
   name: string;
   key?: string;

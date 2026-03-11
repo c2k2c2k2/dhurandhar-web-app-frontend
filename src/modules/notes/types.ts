@@ -19,3 +19,10 @@ export type NoteItem = {
   updatedAt?: string;
   topics?: NoteTopicLink[];
 };
+
+export type NoteListResponse = {
+  data: NoteItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+};

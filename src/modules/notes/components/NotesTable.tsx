@@ -3,7 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { DataTable, type DataTableColumn } from "@/modules/shared/components/DataTable";
+import {
+  DataTable,
+  type DataTableColumn,
+  type DataTablePagination,
+} from "@/modules/shared/components/DataTable";
 import type { NoteItem } from "../types";
 import type { Subject } from "@/modules/taxonomy/subjects/types";
 
@@ -32,6 +36,7 @@ export function NotesTable({
   onPublish,
   onUnpublish,
   onDelete,
+  pagination,
 }: {
   notes: NoteItem[];
   subjects: Subject[];
@@ -41,6 +46,7 @@ export function NotesTable({
   onPublish: (noteId: string) => void;
   onUnpublish: (noteId: string) => void;
   onDelete: (noteId: string) => void;
+  pagination?: DataTablePagination;
 }) {
   const columns = React.useMemo<DataTableColumn<NoteItem>[]>(
     () => [
@@ -133,6 +139,7 @@ export function NotesTable({
       columns={columns}
       rows={notes}
       emptyLabel="No notes found."
+      pagination={pagination}
     />
   );
 }

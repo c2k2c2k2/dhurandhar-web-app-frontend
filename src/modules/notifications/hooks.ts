@@ -11,6 +11,8 @@ const templatesKey = (query: TemplatesQuery) => [
   query.channel ?? "",
   query.search ?? "",
   query.isActive ?? "",
+  query.page ?? 1,
+  query.pageSize ?? 20,
 ];
 
 export function useNotificationTemplates(query: TemplatesQuery) {

@@ -52,11 +52,15 @@ export default function AdminNotificationTemplatesPage() {
   const [search, setSearch] = React.useState("");
   const [channel, setChannel] = React.useState("");
   const [isActive, setIsActive] = React.useState("");
+  const [page, setPage] = React.useState(1);
+  const pageSize = 20;
 
   const query = {
     search: search || undefined,
     channel: channel || undefined,
     isActive: isActive || undefined,
+    page,
+    pageSize,
   };
 
   const { data, isLoading, error } = useNotificationTemplates(query);
@@ -79,6 +83,16 @@ export default function AdminNotificationTemplatesPage() {
   const [bodyEntries, setBodyEntries] = React.useState<StructuredObjectEntry[]>([]);
   const [bodyPreserved, setBodyPreserved] = React.useState<Record<string, unknown>>({});
   const [bodyNotice, setBodyNotice] = React.useState("");
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [channel, isActive, search]);
+
+  React.useEffect(() => {
+    if (page > 1 && data && data.data.length === 0) {
+      setPage((current) => Math.max(current - 1, 1));
+    }
+  }, [data, page]);
 
   const sampleBodyByChannel: Record<string, { text: string; html?: string }> = {
     EMAIL: {
@@ -312,7 +326,7 @@ export default function AdminNotificationTemplatesPage() {
 
         <DataTable
           columns={columns}
-          rows={data ?? []}
+          rows={data?.data ?? []}
           loading={isLoading}
           error={
             error && typeof error === "object" && "message" in error
@@ -322,6 +336,16 @@ export default function AdminNotificationTemplatesPage() {
                 : null
           }
           emptyLabel="No templates available."
+          pagination={
+            data && data.total > data.pageSize
+              ? {
+                  page: data.page,
+                  pageSize: data.pageSize,
+                  total: data.total,
+                  onPageChange: setPage,
+                }
+              : undefined
+          }
         />
       </div>
 
