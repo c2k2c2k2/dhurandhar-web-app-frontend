@@ -36,7 +36,8 @@ export type StudentPlanOption = StudentPlan & {
 };
 
 export type CheckoutResponse = {
-  redirectUrl: string;
+  provider: "PHONEPE" | "RAZORPAY";
+  redirectUrl?: string;
   merchantTransactionId: string;
   orderId: string;
   amountPaise: number;
@@ -44,10 +45,25 @@ export type CheckoutResponse = {
   autoPay?: {
     enabled: boolean;
   };
+  razorpay?: {
+    keyId: string;
+    orderId?: string;
+    subscriptionId?: string;
+    amountPaise: number;
+    currency: string;
+    name: string;
+    description?: string;
+    prefill?: {
+      name?: string;
+      email?: string;
+      contact?: string;
+    };
+  };
 };
 
 export type PaymentOrder = {
   id: string;
+  provider?: "PHONEPE" | "RAZORPAY";
   status: "CREATED" | "PENDING" | "SUCCESS" | "FAILED" | "EXPIRED" | "CANCELLED" | "REFUNDED";
   flow?: "ONE_TIME" | "AUTOPAY_SETUP" | "AUTOPAY_CHARGE";
   merchantTransactionId: string;
@@ -58,6 +74,7 @@ export type PaymentOrder = {
 };
 
 export type CheckoutPreview = {
+  paymentProvider?: "PHONEPE" | "RAZORPAY";
   plan: {
     id: string;
     key: string;

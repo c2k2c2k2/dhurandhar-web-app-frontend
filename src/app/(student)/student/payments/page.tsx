@@ -122,7 +122,7 @@ function PaymentsContent() {
           <p className="text-sm font-semibold">Checkout step added</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Review plan details, coupon discount, and AutoPay options before redirecting to
-            PhonePe.
+            the payment gateway.
           </p>
         </div>
       </div>

@@ -30,6 +30,7 @@ export type PaymentPlanSummary = {
 
 export type PaymentOrder = {
   id: string;
+  provider?: "PHONEPE" | "RAZORPAY";
   userId?: string | null;
   status?: string;
   merchantTransactionId?: string | null;

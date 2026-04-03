@@ -60,6 +60,22 @@ function statusBadge(status?: string | null) {
   );
 }
 
+function providerBadge(provider?: string | null) {
+  const normalized = provider || "UNKNOWN";
+  const classes: Record<string, string> = {
+    PHONEPE: "bg-sky-50 text-sky-700 dark:bg-sky-500/20 dark:text-sky-200",
+    RAZORPAY:
+      "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
+  };
+  return (
+    <span
+      className={`rounded-full px-2 py-1 text-xs font-medium ${classes[normalized] ?? "bg-muted text-muted-foreground"}`}
+    >
+      {normalized}
+    </span>
+  );
+}
+
 function TransactionList({ items }: { items?: PaymentTransaction[] }) {
   if (!items || !items.length) {
     return (
@@ -233,6 +249,11 @@ export default function AdminPaymentsPage() {
             </p>
           </div>
         ),
+      },
+      {
+        key: "provider",
+        header: "Provider",
+        render: (order) => providerBadge(order.provider),
       },
       {
         key: "status",
@@ -426,6 +447,10 @@ export default function AdminPaymentsPage() {
                 <p className="font-medium">
                   {activeOrder.merchantTransactionId || "-"}
                 </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Provider</p>
+                {providerBadge(activeOrder.provider)}
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Status</p>

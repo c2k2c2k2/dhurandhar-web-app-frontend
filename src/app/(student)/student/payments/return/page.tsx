@@ -41,6 +41,8 @@ function PaymentsReturnContent() {
   const [status, setStatus] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [isPolling, setIsPolling] = React.useState(false);
+  const intervalRef = React.useRef<number | null>(null);
+  const requestInFlightRef = React.useRef(false);
 
   React.useEffect(() => {
     if (!merchantTransactionId) {
@@ -50,17 +52,28 @@ function PaymentsReturnContent() {
 
     let active = true;
     let attempts = 0;
-    const maxAttempts = 12;
+    const maxAttempts = 18;
+    const pollIntervalMs = 5000;
+
+    const stopPolling = () => {
+      setIsPolling(false);
+      if (intervalRef.current !== null) {
+        window.clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
 
     const poll = async () => {
-      if (!active) return;
+      if (!active || requestInFlightRef.current) return;
+      requestInFlightRef.current = true;
       setIsPolling(true);
       try {
         const order = await getOrderStatus(merchantTransactionId);
         if (!active) return;
+        setError(null);
         setStatus(order.status);
         if (TERMINAL.includes(order.status as (typeof TERMINAL)[number])) {
-          setIsPolling(false);
+          stopPolling();
           clearPaymentContext();
           if (order.status === "SUCCESS") {
             await refresh();
@@ -76,29 +89,43 @@ function PaymentsReturnContent() {
           err && typeof err === "object" && "message" in err
             ? String((err as { message?: string }).message ?? "")
             : "Unable to fetch payment status.";
-        setError(message || "Unable to fetch payment status.");
+        const statusCode =
+          err && typeof err === "object" && "status" in err
+            ? Number((err as { status?: number }).status ?? 0)
+            : 0;
+        if (statusCode !== 429) {
+          setError(message || "Unable to fetch payment status.");
+        }
       } finally {
         attempts += 1;
+        requestInFlightRef.current = false;
         if (attempts >= maxAttempts) {
-          setIsPolling(false);
+          stopPolling();
         }
       }
     };
 
     void poll();
-    const interval = window.setInterval(() => {
+    intervalRef.current = window.setInterval(() => {
       if (!active || attempts >= maxAttempts) return;
       void poll();
-    }, 3000);
+    }, pollIntervalMs);
 
     return () => {
       active = false;
-      window.clearInterval(interval);
+      requestInFlightRef.current = false;
+      if (intervalRef.current !== null) {
+        window.clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
   }, [merchantTransactionId, refresh]);
 
   const isSuccess = status === "SUCCESS";
-  const isFailure = status && status !== "SUCCESS" && TERMINAL.includes(status as any);
+  const isTerminalStatus = status
+    ? TERMINAL.includes(status as (typeof TERMINAL)[number])
+    : false;
+  const isFailure = Boolean(status && status !== "SUCCESS" && isTerminalStatus);
 
   return (
     <div className="space-y-6">

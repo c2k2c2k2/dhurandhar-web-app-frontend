@@ -159,6 +159,18 @@ export const SITE_SETTING_GROUPS: SiteSettingGroup[] = [
     description: "Business rules for subscriptions and payment automation.",
     fields: [
       {
+        key: "PAYMENTS_ACTIVE_PROVIDER",
+        label: "Active Checkout Provider",
+        description:
+          "Select which payment gateway new student checkouts should use by default.",
+        inputType: "select",
+        defaultValue: "PHONEPE",
+        options: [
+          { value: "PHONEPE", label: "PhonePe" },
+          { value: "RAZORPAY", label: "Razorpay" },
+        ],
+      },
+      {
         key: "SUBSCRIPTION_STACKING",
         label: "Enable Subscription Stacking",
         description:
