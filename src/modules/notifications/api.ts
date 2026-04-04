@@ -51,6 +51,10 @@ export type BroadcastCreatePayload = {
   title: string;
   channel: string;
   templateId?: string;
+  templateKey?: string;
+  templateSubject?: string;
+  templateBodyJson?: Record<string, unknown>;
+  templateVariablesJson?: string[];
   audienceJson: Record<string, unknown>;
   scheduledAt?: string;
   status?: string;
@@ -72,7 +76,9 @@ function normalizeTemplateList(payload: unknown): NotificationTemplateResponse {
     if (Array.isArray(typed.data)) {
       return {
         data: typed.data as NotificationTemplate[],
-        total: Number(typed.total ?? (typed.data as NotificationTemplate[]).length),
+        total: Number(
+          typed.total ?? (typed.data as NotificationTemplate[]).length,
+        ),
         page: Number(typed.page ?? 1),
         pageSize: Number(typed.pageSize ?? 20),
       };
@@ -92,7 +98,7 @@ function normalizeTemplateList(payload: unknown): NotificationTemplateResponse {
 export async function listTemplates(query: TemplatesQuery) {
   const data = await apiFetch<unknown>(
     `/admin/notifications/templates${buildQuery(query)}`,
-    { method: "GET" }
+    { method: "GET" },
   );
   return normalizeTemplateList(data);
 }
@@ -104,40 +110,46 @@ export async function createTemplate(payload: TemplatePayload) {
   });
 }
 
-export async function updateTemplate(templateId: string, payload: TemplateUpdatePayload) {
+export async function updateTemplate(
+  templateId: string,
+  payload: TemplateUpdatePayload,
+) {
   return apiFetch<NotificationTemplate>(
     `/admin/notifications/templates/${templateId}`,
     {
       method: "PATCH",
       body: JSON.stringify(payload),
-    }
+    },
   );
 }
 
 export async function deleteTemplate(templateId: string) {
-  return apiFetch<{ success: boolean }>(`/admin/notifications/templates/${templateId}`, {
-    method: "DELETE",
-  });
+  return apiFetch<{ success: boolean }>(
+    `/admin/notifications/templates/${templateId}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 export async function listMessages(query: MessagesQuery) {
   return apiFetch<NotificationMessageResponse>(
     `/admin/notifications/messages${buildQuery(query)}`,
-    { method: "GET" }
+    { method: "GET" },
   );
 }
 
 export async function resendMessage(messageId: string) {
   return apiFetch<NotificationMessage>(
     `/admin/notifications/messages/${messageId}/resend`,
-    { method: "POST" }
+    { method: "POST" },
   );
 }
 
 export async function listBroadcasts(query: BroadcastsQuery) {
   return apiFetch<NotificationBroadcastResponse>(
     `/admin/notifications/broadcasts${buildQuery(query)}`,
-    { method: "GET" }
+    { method: "GET" },
   );
 }
 
@@ -148,25 +160,31 @@ export async function createBroadcast(payload: BroadcastCreatePayload) {
   });
 }
 
-export async function scheduleBroadcast(broadcastId: string, scheduledAt?: string) {
+export async function scheduleBroadcast(
+  broadcastId: string,
+  scheduledAt?: string,
+) {
   return apiFetch<NotificationBroadcast>(
     `/admin/notifications/broadcasts/${broadcastId}/schedule`,
     {
       method: "POST",
       body: JSON.stringify(scheduledAt ? { scheduledAt } : {}),
-    }
+    },
   );
 }
 
 export async function cancelBroadcast(broadcastId: string) {
   return apiFetch<NotificationBroadcast>(
     `/admin/notifications/broadcasts/${broadcastId}/cancel`,
-    { method: "POST" }
+    { method: "POST" },
   );
 }
 
 export async function deleteBroadcast(broadcastId: string) {
-  return apiFetch<{ success: boolean }>(`/admin/notifications/broadcasts/${broadcastId}`, {
-    method: "DELETE",
-  });
+  return apiFetch<{ success: boolean }>(
+    `/admin/notifications/broadcasts/${broadcastId}`,
+    {
+      method: "DELETE",
+    },
+  );
 }

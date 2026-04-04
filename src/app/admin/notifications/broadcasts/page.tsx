@@ -6,7 +6,10 @@ import { RequirePerm } from "@/lib/auth/guards";
 import { hasPermission } from "@/lib/auth/permissions";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { FiltersBar } from "@/modules/shared/components/FiltersBar";
-import { DataTable, type DataTableColumn } from "@/modules/shared/components/DataTable";
+import {
+  DataTable,
+  type DataTableColumn,
+} from "@/modules/shared/components/DataTable";
 import { Modal } from "@/modules/shared/components/Modal";
 import { ConfirmDialog } from "@/modules/shared/components/ConfirmDialog";
 import { PageHeader } from "@/modules/shared/components/PageHeader";
@@ -19,7 +22,10 @@ import {
   useScheduleBroadcast,
   useCancelBroadcast,
 } from "@/modules/notifications/hooks";
-import type { NotificationBroadcast } from "@/modules/notifications/types";
+import type {
+  NotificationBroadcast,
+  NotificationTemplate,
+} from "@/modules/notifications/types";
 import { FormInput, FormSelect } from "@/modules/shared/components/FormField";
 import { StringListEditor } from "@/modules/shared/components/StructuredEditors";
 
@@ -39,10 +45,13 @@ function formatDate(value?: string | null) {
 function statusBadge(status?: string | null) {
   const normalized = status || "UNKNOWN";
   const classes: Record<string, string> = {
-    DRAFT: "bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-200",
-    SCHEDULED: "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
+    DRAFT:
+      "bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-200",
+    SCHEDULED:
+      "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
     SENT: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
-    CANCELLED: "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
+    CANCELLED:
+      "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
   };
   return (
     <span
@@ -71,7 +80,10 @@ export default function AdminNotificationBroadcastsPage() {
   };
 
   const { data, isLoading, error } = useNotificationBroadcasts(query);
-  const { data: templates } = useNotificationTemplates({ page: 1, pageSize: 200 });
+  const { data: templates } = useNotificationTemplates({
+    page: 1,
+    pageSize: 200,
+  });
   const createBroadcast = useCreateBroadcast(query);
   const deleteBroadcast = useDeleteBroadcast(query);
   const scheduleBroadcast = useScheduleBroadcast(query);
@@ -80,7 +92,17 @@ export default function AdminNotificationBroadcastsPage() {
   const [createOpen, setCreateOpen] = React.useState(false);
   const [title, setTitle] = React.useState("");
   const [broadcastChannel, setBroadcastChannel] = React.useState("EMAIL");
+  const [templateMode, setTemplateMode] = React.useState<
+    "existing" | "compose"
+  >("existing");
   const [templateId, setTemplateId] = React.useState("");
+  const [customTemplateKey, setCustomTemplateKey] = React.useState("");
+  const [customTemplateSubject, setCustomTemplateSubject] = React.useState("");
+  const [customMessageText, setCustomMessageText] = React.useState("");
+  const [customMessageHtml, setCustomMessageHtml] = React.useState("");
+  const [customTemplateVariables, setCustomTemplateVariables] = React.useState<
+    string[]
+  >([]);
   const [audienceUserType, setAudienceUserType] = React.useState("");
   const [audienceStatus, setAudienceStatus] = React.useState("");
   const [audienceUserIds, setAudienceUserIds] = React.useState<string[]>([]);
@@ -91,7 +113,27 @@ export default function AdminNotificationBroadcastsPage() {
   const [scheduleOpen, setScheduleOpen] = React.useState(false);
   const [scheduleId, setScheduleId] = React.useState<string | null>(null);
   const [scheduleAt, setScheduleAt] = React.useState("");
-  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(
+    null,
+  );
+
+  const availableTemplates = React.useMemo<NotificationTemplate[]>(
+    () =>
+      (templates?.data ?? []).filter(
+        (template) =>
+          template.channel === broadcastChannel && (template.isActive ?? true),
+      ),
+    [broadcastChannel, templates?.data],
+  );
+
+  React.useEffect(() => {
+    if (templateMode !== "existing" || !templateId) {
+      return;
+    }
+    if (!availableTemplates.some((template) => template.id === templateId)) {
+      setTemplateId("");
+    }
+  }, [availableTemplates, templateId, templateMode]);
 
   const handleCreate = async () => {
     const parsedAudience: Record<string, unknown> = {};
@@ -102,7 +144,9 @@ export default function AdminNotificationBroadcastsPage() {
       parsedAudience.status = audienceStatus;
     }
     if (audienceUserIds.length) {
-      parsedAudience.userIds = audienceUserIds.map((item) => item.trim()).filter(Boolean);
+      parsedAudience.userIds = audienceUserIds
+        .map((item) => item.trim())
+        .filter(Boolean);
     }
     if (audienceCreatedFrom) {
       parsedAudience.createdFrom = new Date(audienceCreatedFrom).toISOString();
@@ -111,18 +155,74 @@ export default function AdminNotificationBroadcastsPage() {
       parsedAudience.createdTo = new Date(audienceCreatedTo).toISOString();
     }
 
+    if (templateMode === "existing" && !templateId) {
+      toast({
+        title: "Template required",
+        description: "Select a reusable template or switch to compose mode.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const templateVariablesJson = customTemplateVariables
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const templateBodyJson =
+      templateMode === "compose"
+        ? {
+            ...(customMessageText.trim()
+              ? { text: customMessageText.trim() }
+              : {}),
+            ...(broadcastChannel === "EMAIL" && customMessageHtml.trim()
+              ? { html: customMessageHtml.trim() }
+              : {}),
+          }
+        : undefined;
+
+    if (
+      templateMode === "compose" &&
+      (!templateBodyJson || Object.keys(templateBodyJson).length === 0)
+    ) {
+      toast({
+        title: "Content required",
+        description: "Add email text or HTML content for this broadcast.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       await createBroadcast.mutateAsync({
         title: title.trim(),
         channel: broadcastChannel,
-        templateId: templateId || undefined,
+        templateId:
+          templateMode === "existing" ? templateId || undefined : undefined,
+        templateKey:
+          templateMode === "compose"
+            ? customTemplateKey.trim() || undefined
+            : undefined,
+        templateSubject:
+          templateMode === "compose"
+            ? customTemplateSubject.trim() || title.trim() || undefined
+            : undefined,
+        templateBodyJson,
+        templateVariablesJson:
+          templateMode === "compose" && templateVariablesJson.length
+            ? templateVariablesJson
+            : undefined,
         audienceJson: parsedAudience,
         scheduledAt: scheduledAt || undefined,
       });
       toast({ title: "Broadcast created" });
       setCreateOpen(false);
       setTitle("");
+      setTemplateMode("existing");
       setTemplateId("");
+      setCustomTemplateKey("");
+      setCustomTemplateSubject("");
+      setCustomMessageText("");
+      setCustomMessageHtml("");
+      setCustomTemplateVariables([]);
       setAudienceUserType("");
       setAudienceStatus("");
       setAudienceUserIds([]);
@@ -164,21 +264,24 @@ export default function AdminNotificationBroadcastsPage() {
     }
   };
 
-  const handleCancel = React.useCallback(async (broadcastId: string) => {
-    try {
-      await cancelBroadcast.mutateAsync(broadcastId);
-      toast({ title: "Broadcast cancelled" });
-    } catch (err) {
-      toast({
-        title: "Cancel failed",
-        description:
-          err && typeof err === "object" && "message" in err
-            ? String(err.message)
-            : "Unable to cancel broadcast.",
-        variant: "destructive",
-      });
-    }
-  }, [cancelBroadcast, toast]);
+  const handleCancel = React.useCallback(
+    async (broadcastId: string) => {
+      try {
+        await cancelBroadcast.mutateAsync(broadcastId);
+        toast({ title: "Broadcast cancelled" });
+      } catch (err) {
+        toast({
+          title: "Cancel failed",
+          description:
+            err && typeof err === "object" && "message" in err
+              ? String(err.message)
+              : "Unable to cancel broadcast.",
+          variant: "destructive",
+        });
+      }
+    },
+    [cancelBroadcast, toast],
+  );
 
   const handleDelete = React.useCallback(async () => {
     if (!deleteTargetId) return;
@@ -205,7 +308,9 @@ export default function AdminNotificationBroadcastsPage() {
         header: "Broadcast",
         render: (broadcast) => (
           <div className="space-y-1">
-            <p className="text-sm font-medium">{broadcast.title || broadcast.id}</p>
+            <p className="text-sm font-medium">
+              {broadcast.title || broadcast.id}
+            </p>
             <p className="text-xs text-muted-foreground">
               {broadcast.template?.key || "No template"}
             </p>
@@ -266,7 +371,7 @@ export default function AdminNotificationBroadcastsPage() {
         ),
       },
     ],
-    [canManage, handleCancel]
+    [canManage, handleCancel],
   );
 
   return (
@@ -378,18 +483,119 @@ export default function AdminNotificationBroadcastsPage() {
             <option value="SMS">SMS</option>
             <option value="WHATSAPP">WhatsApp</option>
           </FormSelect>
-          <FormSelect
-            label="Template"
-            value={templateId}
-            onChange={(event) => setTemplateId(event.target.value)}
-          >
-            <option value="">Select template</option>
-            {(templates?.data ?? []).map((template) => (
-              <option key={template.id} value={template.id}>
-                {template.key} ({template.channel})
-              </option>
-            ))}
-          </FormSelect>
+          <div className="space-y-3 rounded-3xl border border-border bg-card/50 p-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">
+                Content Source
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Use an existing reusable template or compose a custom campaign
+                email here.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={templateMode === "existing" ? "cta" : "secondary"}
+                onClick={() => setTemplateMode("existing")}
+              >
+                Use Existing Template
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={templateMode === "compose" ? "cta" : "secondary"}
+                onClick={() => setTemplateMode("compose")}
+              >
+                Compose Custom Email
+              </Button>
+            </div>
+          </div>
+          {templateMode === "existing" ? (
+            <div className="space-y-2">
+              <FormSelect
+                label="Template"
+                value={templateId}
+                onChange={(event) => setTemplateId(event.target.value)}
+              >
+                <option value="">Select template</option>
+                {availableTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.key}
+                    {template.subject ? ` (${template.subject})` : ""}
+                  </option>
+                ))}
+              </FormSelect>
+              <p className="text-xs text-muted-foreground">
+                {availableTemplates.length
+                  ? "Only active templates for the selected channel are shown."
+                  : "No active templates are available for this channel yet. Switch to compose mode to create one now."}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4 rounded-3xl border border-border bg-card/50 p-4">
+              <p className="text-xs text-muted-foreground">
+                This custom content will be saved as a reusable template
+                automatically so the team can send it again later.
+              </p>
+              <FormInput
+                label="Reusable Template Key (optional)"
+                placeholder="broadcast.weekly-update"
+                value={customTemplateKey}
+                onChange={(event) => setCustomTemplateKey(event.target.value)}
+              />
+              <FormInput
+                label="Email Subject"
+                placeholder="Weekly update from Dhurandhar"
+                value={customTemplateSubject}
+                onChange={(event) =>
+                  setCustomTemplateSubject(event.target.value)
+                }
+              />
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Message Text
+                </label>
+                <textarea
+                  className="min-h-[120px] w-full rounded-2xl border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  placeholder="Hello {{fullName}}, here is this week's update..."
+                  value={customMessageText}
+                  onChange={(event) => setCustomMessageText(event.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Plain-text content works for all channels and acts as the
+                  fallback version of the email.
+                </p>
+              </div>
+              {broadcastChannel === "EMAIL" ? (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Email HTML (optional)
+                  </label>
+                  <textarea
+                    className="min-h-[180px] w-full rounded-2xl border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    placeholder="<p>Hello {{fullName}}, here is this week's update...</p>"
+                    value={customMessageHtml}
+                    onChange={(event) =>
+                      setCustomMessageHtml(event.target.value)
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave HTML empty if the plain-text version is enough.
+                  </p>
+                </div>
+              ) : null}
+              <StringListEditor
+                label="Variables"
+                description="Optional placeholders available in this broadcast, for example fullName or email."
+                values={customTemplateVariables}
+                onChange={setCustomTemplateVariables}
+                itemLabel="Variable"
+                addLabel="Add variable"
+              />
+            </div>
+          )}
           <div className="grid gap-4 md:grid-cols-2">
             <FormSelect
               label="User Type"

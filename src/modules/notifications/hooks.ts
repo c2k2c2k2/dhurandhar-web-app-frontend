@@ -112,6 +112,9 @@ export function useCreateBroadcast(query: BroadcastsQuery) {
     mutationFn: api.createBroadcast,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: broadcastsKey(query) });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "notifications", "templates"],
+      });
     },
   });
 }

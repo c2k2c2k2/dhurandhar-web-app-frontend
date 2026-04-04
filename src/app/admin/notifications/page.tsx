@@ -1,5 +1,1 @@
-import { redirect } from "next/navigation";
-
-export default function AdminNotificationsPage() {
-  redirect("/admin/notifications/templates");
-}
+export { default } from "./templates/page";

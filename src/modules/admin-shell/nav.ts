@@ -123,7 +123,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     label: "Notifications",
-    href: "/admin/notifications",
+    href: "/admin/notifications/templates",
     icon: Bell,
     permissions: ["notifications.read"],
   },
